@@ -1,0 +1,1 @@
+mem=64M console=ttyS1,115200n8 rw noinitrd root=/dev/nfs nfsroot=137.167.35.46:/home/jars/am1808/filesys/feb/try1,nolock,rsize=1024,wsize=1024 ip=dhcp
