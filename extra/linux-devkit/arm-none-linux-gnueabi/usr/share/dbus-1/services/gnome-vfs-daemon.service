@@ -1,3 +1,0 @@
-[D-BUS Service]
-Name=org.gnome.GnomeVFS.Daemon
-Exec=/usr/libexec/gnome-vfs-daemon

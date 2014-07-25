@@ -1,6 +1,0 @@
-/usr/lib/jack/jack_dummy.la
-/usr/lib/jack/intime.la
-/usr/lib/jack/inprocess.la
-/usr/lib/jack/jack_oss.la
-/usr/lib/jack/jack_net.la
-/usr/lib/jack/jack_alsa.la

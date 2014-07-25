@@ -1,6 +1,0 @@
-#!/bin/sh
-if [ x"$D" = "x" ]; then
-	if [ -e /etc/ld.so.conf ] ; then
-		[ -x /sbin/ldconfig ] && /sbin/ldconfig
-	fi
-fi
