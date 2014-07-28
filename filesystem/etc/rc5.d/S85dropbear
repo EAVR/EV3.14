@@ -1,0 +1,5 @@
+#! /bin/sh
+
+dropbear
+
+exit 0
