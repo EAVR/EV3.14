@@ -1,0 +1,249 @@
+Jan 25 12:22:29 arago user.err kernel: da8xx_interrupt 512: Unhandled USB IRQ 00090000
+Jan 25 12:23:48 arago user.err kernel: da8xx_interrupt 512: Unhandled USB IRQ 00090000
+Jan 25 12:28:34 arago user.notice kernel: nfs: server 10.131.145.114 not responding, still trying
+Jan 25 13:21:23 arago user.notice kernel: nfs: server 10.131.145.114 not responding, still trying
+Jan 25 13:21:23 arago user.notice kernel: nfs: server 10.131.145.114 OK
+Jan 25 13:21:23 arago user.notice kernel: nfs: server 10.131.145.114 OK
+Jan 25 12:16:05 arago syslog.info syslogd started: BusyBox v1.13.2
+Jan 25 12:16:05 arago user.notice kernel: klogd started: BusyBox v1.13.2 (2010-12-21 19:28:47 CST)
+Jan 25 12:16:05 arago user.notice kernel: Linux version 2.6.33-rc4 (al@ubuntu) (gcc version 4.3.3 (Sourcery G++ Lite 2009q1-203) ) #1 PREEMPT Wed Oct 5 10:31:32 CEST 2011
+Jan 25 12:16:05 arago user.warn kernel: CPU: ARM926EJ-S [41069265] revision 5 (ARMv5TEJ), cr=00053177
+Jan 25 12:16:05 arago user.warn kernel: CPU: VIVT data cache, VIVT instruction cache
+Jan 25 12:16:05 arago user.warn kernel: Machine: DaVinci DA850/OMAP-L138/AM18xx EVM
+Jan 25 12:16:05 arago user.warn kernel: Memory policy: ECC disabled, Data cache writeback
+Jan 25 12:16:05 arago user.debug kernel: On node 0 totalpages: 16384
+Jan 25 12:16:05 arago user.debug kernel: free_area_init_node: node 0, pgdat c03e4284, node_mem_map c0404000
+Jan 25 12:16:05 arago user.debug kernel:   DMA zone: 128 pages used for memmap
+Jan 25 12:16:05 arago user.debug kernel:   DMA zone: 0 pages reserved
+Jan 25 12:16:05 arago user.debug kernel:   DMA zone: 16256 pages, LIFO batch:3
+Jan 25 12:16:05 arago user.info kernel: DaVinci da850/omap-l138/am18xx variant 0x1
+Jan 25 12:16:05 arago user.warn kernel: Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 16256
+Jan 25 12:16:05 arago daemon.notice modprobe: FATAL: Error inserting ipv6 (/lib/modules/2.6.33-rc4/kernel/net/ipv6/ipv6.ko): Invalid module format
+Jan 25 12:16:05 arago user.notice kernel: Kernel command line: console=ttyS1,115200n8 noinitrd rw ip=10.131.145.112 root=/dev/nfs nfsroot=10.131.145.114:/home/al/am1808/am180x-sdk-src-04.01.00.00/filesys,nolock,vers=2,rsize=1024 mem=64M loglevel=8
+Jan 25 12:16:05 arago user.info kernel: PID hash table entries: 256 (order: -2, 1024 bytes)
+Jan 25 12:16:05 arago user.info kernel: Dentry cache hash table entries: 8192 (order: 3, 32768 bytes)
+Jan 25 12:16:06 arago user.info kernel: Inode-cache hash table entries: 4096 (order: 2, 16384 bytes)
+Jan 25 12:16:06 arago user.info kernel: Memory: 64MB = 64MB total
+Jan 25 12:16:06 arago user.notice kernel: Memory: 60792KB available (3656K code, 289K data, 124K init, 0K highmem)
+Jan 25 12:16:06 arago user.info kernel: SLUB: Genslabs=11, HWalign=32, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+Jan 25 12:16:06 arago user.info kernel: Hierarchical RCU implementation.
+Jan 25 12:16:06 arago user.info kernel: NR_IRQS:245
+Jan 25 12:16:06 arago user.warn kernel: Console: colour dummy device 80x30
+Jan 25 12:16:06 arago daemon.notice modprobe: FATAL: Error inserting ipv6 (/lib/modules/2.6.33-rc4/kernel/net/ipv6/ipv6.ko): Invalid module format
+Jan 25 12:16:06 arago user.info kernel: Calibrating delay loop... 149.50 BogoMIPS (lpj=747520)
+Jan 25 12:16:06 arago user.warn kernel: Mount-cache hash table entries: 512
+Jan 25 12:16:06 arago daemon.crit thttpd[797]: chdir - No such file or directory
+Jan 25 12:16:06 arago user.info kernel: CPU: Testing write buffer coherency: ok
+Jan 25 12:16:06 arago user.info kernel: DaVinci: 144 gpio irqs
+Jan 25 12:16:06 arago user.info kernel: NET: Registered protocol family 16
+Jan 25 12:16:06 arago user.warn kernel: MUX: Setting register GPIO1_4
+Jan 25 12:16:06 arago user.warn kernel: 	   PINMUX4 (0x00000010) = 0x22002210 -> 0x22008210
+Jan 25 12:16:06 arago user.warn kernel: MUX: Setting register GPIO1_5
+Jan 25 12:16:06 arago user.warn kernel: 	   PINMUX4 (0x00000010) = 0x22008210 -> 0x22008810
+Jan 25 12:16:06 arago user.warn kernel: MUX: Setting register UART2_RXD
+Jan 25 12:16:06 arago user.warn kernel: 	   PINMUX4 (0x00000010) = 0x22008810 -> 0x22028810
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register UART2_TXD
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX4 (0x00000010) = 0x22028810 -> 0x22228810
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_0
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX17 (0x00000044) = 0x00000000 -> 0x00000020
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_1
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX17 (0x00000044) = 0x00000020 -> 0x00000022
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_2
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX16 (0x00000040) = 0x00000080 -> 0x20000080
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_3
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX16 (0x00000040) = 0x20000080 -> 0x22000080
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_4
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX16 (0x00000040) = 0x22000080 -> 0x22200080
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_5
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX16 (0x00000040) = 0x22200080 -> 0x22220080
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_6
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX16 (0x00000040) = 0x22220080 -> 0x22222080
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_7
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX16 (0x00000040) = 0x22222080 -> 0x22222280
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_8
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX18 (0x00000048) = 0x08000000 -> 0x08000020
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_9
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX18 (0x00000048) = 0x08000020 -> 0x08000022
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_10
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX17 (0x00000044) = 0x00000022 -> 0x20000022
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_11
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX17 (0x00000044) = 0x20000022 -> 0x22000022
+Jan 25 12:16:07 arago user.warn kernel: MUX: Setting register LCD_D_12
+Jan 25 12:16:07 arago user.warn kernel: 	   PINMUX17 (0x00000044) = 0x22000022 -> 0x22200022
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register LCD_D_13
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX17 (0x00000044) = 0x22200022 -> 0x22220022
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register LCD_D_14
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX17 (0x00000044) = 0x22220022 -> 0x22222022
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register LCD_D_15
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX17 (0x00000044) = 0x22222022 -> 0x22222222
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register LCD_PCLK
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX18 (0x00000048) = 0x08000022 -> 0x02000022
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register LCD_MCLK
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX18 (0x00000048) = 0x02000022 -> 0x22000022
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register LCD_HSYNC
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX19 (0x0000004c) = 0x00000000 -> 0x00000002
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register LCD_VSYNC
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX19 (0x0000004c) = 0x00000002 -> 0x00000022
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register NLCD_AC_ENB_CS
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX19 (0x0000004c) = 0x00000022 -> 0x02000022
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register GPIO2_8
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX5 (0x00000014) = 0x00110110 -> 0x80110110
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register GPIO2_15
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX5 (0x00000014) = 0x80110110 -> 0x80110118
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register RTC_ALARM
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX0 (0x00000000) = 0x44000000 -> 0x24000000
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register GPIO4_1
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX10 (0x00000028) = 0x00222222 -> 0x08222222
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register ECAP2_OUT
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX1 (0x00000004) = 0x00000000 -> 0x00000004
+Jan 25 12:16:08 arago user.warn kernel: MUX: Setting register ECAP2_OUT_ENABLE
+Jan 25 12:16:08 arago user.warn kernel: 	   PINMUX0 (0x00000000) = 0x24000000 -> 0x24008000
+Jan 25 12:16:08 arago user.debug kernel: edma edma: DMA REG BASE ADDR=fec00000
+Jan 25 12:16:08 arago user.debug kernel: edma edma: DMA REG BASE ADDR=fee30000
+Jan 25 12:16:08 arago user.warn kernel: bio: create slab <bio-0> at 0
+Jan 25 12:16:08 arago user.notice kernel: SCSI subsystem initialized
+Jan 25 12:16:08 arago user.info kernel: usbcore: registered new interface driver usbfs
+Jan 25 12:16:08 arago user.info kernel: usbcore: registered new interface driver hub
+Jan 25 12:16:08 arago user.info kernel: usbcore: registered new device driver usb
+Jan 25 12:16:08 arago user.warn kernel: i2c-gpio: probe of i2c-gpio.1 failed with error -16
+Jan 25 12:16:08 arago user.info kernel: Bluetooth: Core ver 2.15
+Jan 25 12:16:08 arago user.info kernel: NET: Registered protocol family 31
+Jan 25 12:16:08 arago user.info kernel: Bluetooth: HCI device and connection manager initialized
+Jan 25 12:16:08 arago user.info kernel: Bluetooth: HCI socket layer initialized
+Jan 25 12:16:08 arago user.info kernel: Switching to clocksource timer0_1
+Jan 25 12:16:08 arago user.info kernel: musb_hdrc: version 6.0, pio, peripheral, debug=0
+Jan 25 12:16:08 arago user.info kernel: Waiting for USB PHY clock good...
+Jan 25 12:16:08 arago user.debug kernel: DA830 OTG revision 4ea11003, PHY 24972, control 00
+Jan 25 12:16:08 arago user.debug kernel: musb_hdrc: ConfigData=0x06 (UTMI-8, dyn FIFOs, SoftConn)
+Jan 25 12:16:08 arago user.debug kernel: musb_hdrc: MHDRC RTL version 1.800 
+Jan 25 12:16:08 arago user.debug kernel: musb_hdrc: setup fifo_mode 2
+Jan 25 12:16:08 arago user.debug kernel: musb_hdrc: 7/9 max ep, 3904/4096 memory
+Jan 25 12:16:08 arago user.info kernel: musb_hdrc: USB Peripheral mode controller at fee00000 using PIO, IRQ 58
+Jan 25 12:16:09 arago user.debug kernel: Registered /proc/driver/musb_hdrc
+Jan 25 12:16:09 arago user.info kernel: NET: Registered protocol family 2
+Jan 25 12:16:09 arago user.info kernel: IP route cache hash table entries: 1024 (order: 0, 4096 bytes)
+Jan 25 12:16:09 arago user.info kernel: TCP established hash table entries: 2048 (order: 2, 16384 bytes)
+Jan 25 12:16:09 arago user.info kernel: TCP bind hash table entries: 2048 (order: 1, 8192 bytes)
+Jan 25 12:16:09 arago user.info kernel: TCP: Hash tables configured (established 2048 bind 2048)
+Jan 25 12:16:09 arago user.info kernel: TCP reno registered
+Jan 25 12:16:09 arago user.info kernel: UDP hash table entries: 256 (order: 0, 4096 bytes)
+Jan 25 12:16:09 arago user.info kernel: UDP-Lite hash table entries: 256 (order: 0, 4096 bytes)
+Jan 25 12:16:09 arago user.info kernel: NET: Registered protocol family 1
+Jan 25 12:16:09 arago user.info kernel: RPC: Registered udp transport module.
+Jan 25 12:16:09 arago user.info kernel: RPC: Registered tcp transport module.
+Jan 25 12:16:09 arago user.info kernel: RPC: Registered tcp NFSv4.1 backchannel transport module.
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_TXEN
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX2 (0x00000008) = 0x00000000 -> 0x00000080
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_TXCLK
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX2 (0x00000008) = 0x00000080 -> 0x00000880
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_COL
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX2 (0x00000008) = 0x00000880 -> 0x00008880
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_TXD_3
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX2 (0x00000008) = 0x00008880 -> 0x00088880
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_TXD_2
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX2 (0x00000008) = 0x00088880 -> 0x00888880
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_TXD_1
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX2 (0x00000008) = 0x00888880 -> 0x08888880
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_TXD_0
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX2 (0x00000008) = 0x08888880 -> 0x88888880
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_RXER
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX3 (0x0000000c) = 0x00001101 -> 0x00001801
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_CRS
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX3 (0x0000000c) = 0x00001801 -> 0x00008801
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_RXCLK
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX3 (0x0000000c) = 0x00008801 -> 0x00008808
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_RXDV
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX3 (0x0000000c) = 0x00008808 -> 0x00008888
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_RXD_3
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX3 (0x0000000c) = 0x00008888 -> 0x00088888
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_RXD_2
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX3 (0x0000000c) = 0x00088888 -> 0x00888888
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_RXD_1
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX3 (0x0000000c) = 0x00888888 -> 0x08888888
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MII_RXD_0
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX3 (0x0000000c) = 0x08888888 -> 0x88888888
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MDIO_CLK
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX4 (0x00000010) = 0x22228810 -> 0x22228818
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register MDIO_D
+Jan 25 12:16:09 arago user.warn kernel: 	   PINMUX4 (0x00000010) = 0x22228818 -> 0x22228888
+Jan 25 12:16:09 arago user.info kernel: EMAC: MII PHY configured, RMII PHY will not be functional
+Jan 25 12:16:09 arago user.warn kernel: MUX: Setting register GPIO2_6
+Jan 25 12:16:10 arago user.warn kernel: 	   PINMUX6 (0x00000018) = 0x00000000 -> 0x00000080
+Jan 25 12:16:10 arago user.info kernel: JFFS2 version 2.2. (NAND) © 2001-2006 Red Hat, Inc.
+Jan 25 12:16:10 arago user.info kernel: msgmni has been set to 118
+Jan 25 12:16:10 arago user.info kernel: alg: No test for stdrng (krng)
+Jan 25 12:16:10 arago user.info kernel: io scheduler noop registered (default)
+Jan 25 12:16:10 arago user.info kernel: Serial: 8250/16550 driver, 3 ports, IRQ sharing disabled
+Jan 25 12:16:10 arago user.info kernel: serial8250.0: ttyS0 at MMIO 0x1c42000 (irq = 25) is a AR7
+Jan 25 12:16:10 arago user.info kernel: serial8250.0: ttyS1 at MMIO 0x1d0c000 (irq = 53) is a AR7
+Jan 25 12:16:10 arago user.info kernel: console [ttyS1] enabled
+Jan 25 12:16:10 arago user.info kernel: serial8250.0: ttyS2 at MMIO 0x1d0d000 (irq = 61) is a AR7
+Jan 25 12:16:10 arago user.info kernel: brd: module loaded
+Jan 25 12:16:10 arago user.info kernel: spi_davinci spi_davinci.1: Controller at 0xfef0e000 
+Jan 25 12:16:10 arago user.info kernel: pegasus: v0.6.14 (2006/09/27), Pegasus/Pegasus II USB Ethernet driver
+Jan 25 12:16:10 arago user.info kernel: usbcore: registered new interface driver pegasus
+Jan 25 12:16:10 arago user.info kernel: console [netcon0] enabled
+Jan 25 12:16:10 arago user.info kernel: netconsole: network logging started
+Jan 25 12:16:10 arago user.info kernel: ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
+Jan 25 12:16:10 arago user.info kernel: ohci ohci.0: DA8xx OHCI
+Jan 25 12:16:10 arago user.info kernel: ohci ohci.0: new USB bus registered, assigned bus number 1
+Jan 25 12:16:10 arago user.info kernel: ohci ohci.0: irq 59, io mem 0x01e25000
+Jan 25 12:16:10 arago user.info kernel: hub 1-0:1.0: USB hub found
+Jan 25 12:16:10 arago user.info kernel: hub 1-0:1.0: 1 port detected
+Jan 25 12:16:10 arago user.info kernel: Initializing USB Mass Storage driver...
+Jan 25 12:16:10 arago user.info kernel: usbcore: registered new interface driver usb-storage
+Jan 25 12:16:10 arago user.info kernel: USB Mass Storage support registered.
+Jan 25 12:16:10 arago user.info kernel: omap_rtc omap_rtc: rtc core: registered omap_rtc as rtc0
+Jan 25 12:16:10 arago user.info kernel: omap_rtc: RTC power up reset detected
+Jan 25 12:16:10 arago user.info kernel: i2c /dev entries driver
+Jan 25 12:16:10 arago user.info kernel: watchdog watchdog: heartbeat 60 sec
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: HCI UART driver ver 2.2
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: HCI H4 protocol initialized
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: HCI BCSP protocol initialized
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: HCILL protocol initialized
+Jan 25 12:16:10 arago user.info kernel: usbcore: registered new interface driver usbhid
+Jan 25 12:16:10 arago user.info kernel: usbhid: USB HID core driver
+Jan 25 12:16:10 arago user.info kernel: TCP cubic registered
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: L2CAP ver 2.14
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: L2CAP socket layer initialized
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: SCO (Voice Link) ver 0.6
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: SCO socket layer initialized
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: RFCOMM TTY layer initialized
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: RFCOMM socket layer initialized
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: RFCOMM ver 1.11
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: BNEP (Ethernet Emulation) ver 1.3
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: BNEP filters: protocol multicast
+Jan 25 12:16:10 arago user.info kernel: Bluetooth: HIDP (Human Interface Emulation) ver 1.2
+Jan 25 12:16:10 arago user.info kernel: omap_rtc omap_rtc: setting system clock to 2000-01-01 00:00:00 UTC (946684800)
+Jan 25 12:16:10 arago user.info kernel: usb 1-1: new full speed USB device using ohci and address 2
+Jan 25 12:16:10 arago user.info kernel: pegasus 1-1:1.0: setup Pegasus II specific registers
+Jan 25 12:16:10 arago user.info kernel: pegasus 1-1:1.0: eth0, ADMtek ADM8515 "Pegasus II" USB-2.0 Ethernet, 00:00:70:01:09:fa
+Jan 25 12:16:11 arago user.err kernel: pegasus 1-1:1.0: update_eth_regs_async, status -22
+Jan 25 12:16:11 arago user.err kernel: pegasus 1-1:1.0: update_eth_regs_async, status -22
+Jan 25 12:16:11 arago user.warn kernel: IP-Config: Guessing netmask 255.0.0.0
+Jan 25 12:16:11 arago user.warn kernel: IP-Config: Complete:
+Jan 25 12:16:11 arago user.warn kernel:      device=eth0, addr=10.131.145.112, mask=255.0.0.0, gw=255.255.255.255,
+Jan 25 12:16:11 arago user.warn kernel:      host=10.131.145.112, domain=, nis-domain=(none),
+Jan 25 12:16:11 arago user.warn kernel:      bootserver=255.255.255.255, rootserver=10.131.145.114, rootpath=
+Jan 25 12:16:11 arago user.warn kernel: Root-NFS: unknown option: vers=2
+Jan 25 12:16:11 arago user.notice kernel: Looking up port of RPC 100003/2 on 10.131.145.114
+Jan 25 12:16:11 arago user.notice kernel: Looking up port of RPC 100005/1 on 10.131.145.114
+Jan 25 12:16:11 arago user.warn kernel: VFS: Mounted root (nfs filesystem) on device 0:12.
+Jan 25 12:16:11 arago user.info kernel: Freeing init memory: 124K
+Jan 25 12:16:11 arago user.warn kernel: ipv6: disagrees about version of symbol module_layout
+Jan 25 12:16:11 arago user.warn kernel: ipv6: disagrees about version of symbol module_layout
+Jan 25 12:16:11 arago user.warn kernel: ipv6: disagrees about version of symbol module_layout
+Jan 25 12:16:11 arago user.warn kernel: ipv6: disagrees about version of symbol module_layout
+Jan 25 12:16:13 arago daemon.info bluetoothd[824]: Bluetooth deamon 4.75
+Jan 25 12:16:13 arago daemon.info bluetoothd[824]: Starting SDP server
+Jan 25 12:16:14 arago daemon.info bluetoothd[824]: Starting experimental netlink support
+Jan 25 12:16:14 arago daemon.err bluetoothd[824]: Failed to find Bluetooth netlink family
+Jan 25 12:16:14 arago daemon.err bluetoothd[824]: Failed to init netlink plugin
+Jan 25 12:16:14 arago daemon.err bluetoothd[824]: Failed to open RFKILL control device
+Jan 25 12:16:16 arago daemon.info bluetoothd[824]: HCI dev 0 registered
+Jan 25 12:16:16 arago daemon.info bluetoothd[824]: HCI dev 0 up
+Jan 25 12:16:16 arago daemon.info bluetoothd[824]: Starting security manager 0
+Jan 25 12:16:17 arago daemon.err bluetoothd[824]: Parsing /etc/bluetooth/serial.conf failed: No such file or directory
+Jan 25 12:16:17 arago daemon.err bluetoothd[824]: Could not get the contents of DMI chassis type
+Jan 25 12:16:17 arago daemon.err bluetoothd[824]: Clearing blocked list failed: Invalid argument (22)
+Jan 25 12:16:17 arago daemon.info bluetoothd[824]: Adapter /org/bluez/824/hci0 has been enabled
