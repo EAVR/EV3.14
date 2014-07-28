@@ -315,6 +315,7 @@ IV.   Remember the voltage on pin 1 when connected to an input port
 
 
 int       Hw = 0;
+int MIN;
 
 
 enum      InputPortPins
@@ -785,7 +786,7 @@ void      InitGpio(void)
     printk("%s InputPortPin tabel broken!\n",MODULE_NAME);
   }
 
-  for (Port = 0;Port < NO_OF_INPUT_PORTS;Port++)
+  for (Port = MIN;Port < NO_OF_INPUT_PORTS;Port++)
   {
 #ifdef DEBUG
     printk("  Input port %d\n",Port + 1);
@@ -816,7 +817,7 @@ void      InitGpio(void)
   {
     printk("%s OutputPortPin tabel broken!\n",MODULE_NAME);
   }
-  for (Port = 0;Port < NO_OF_OUTPUT_PORTS;Port++)
+  for (Port = MIN;Port < NO_OF_OUTPUT_PORTS;Port++)
   {
 #ifdef DEBUG
     printk("  Output port %d\n",Port + 1);
@@ -1530,7 +1531,7 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
   if (NxtPointer == 0)
   {
     Color  =  0;
-    for (Port = 0;Port < INPUTS;Port++)
+    for (Port = MIN;Port < INPUTS;Port++)
     {
 #ifndef DISABLE_FAST_DATALOG_BUFFER
       if (NxtColorActive[Port])
@@ -1620,7 +1621,7 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
 #endif
   }
 
-  for (Port = 0;Port < INPUTS;Port++)
+  for (Port = MIN;Port < INPUTS;Port++)
   {
     (*pAnalog).Updated[Port]  =  1;
   }
@@ -1935,12 +1936,12 @@ static int Device1Init(void)
       memset(pAnalog,0,sizeof(ANALOG));
       pInputs      =  pTmp;
 
-      for (Port = 0;Port < INPUTS;Port++)
+      for (Port = MIN;Port < INPUTS;Port++)
       {
         (*pAnalog).InDcm[Port]    =  0;
         (*pAnalog).InConn[Port]   =  0;
       }
-      for (Port = 0;Port < OUTPUTS;Port++)
+      for (Port = MIN;Port < OUTPUTS;Port++)
       {
         (*pAnalog).OutDcm[Port]   =  0;
         (*pAnalog).OutConn[Port]  =  0;
@@ -2031,11 +2032,11 @@ static int Device2Ioctl(struct inode *pNode, struct file *File, unsigned int Req
 
       Device3State  =  0;
       TestMode      =  0;
-      for (Port = 0;Port < INPUTS;Port++)
+      for (Port = MIN;Port < INPUTS;Port++)
       {
         InputPort[Port].State       =  DCM_INIT;
       }
-      for (Port = 0;Port < OUTPUTS;Port++)
+      for (Port = MIN;Port < OUTPUTS;Port++)
       {
         OutputPort[Port].State      =  DCM_INIT;
       }
@@ -2047,14 +2048,14 @@ static int Device2Ioctl(struct inode *pNode, struct file *File, unsigned int Req
 
       Device3State  =  0;
       TestMode      =  1;
-      for (Port = 0;Port < INPUTS;Port++)
+      for (Port = MIN;Port < INPUTS;Port++)
       {
         InputPortFloat(Port);
         (*pAnalog).InDcm[Port]    =  TYPE_NONE;
         (*pAnalog).InConn[Port]   =  CONN_NONE;
       }
 
-      for (Port = 0;Port < OUTPUTS;Port++)
+      for (Port = MIN;Port < OUTPUTS;Port++)
       {
         OutputPortFloat(Port);
         (*pAnalog).OutDcm[Port]    =  TYPE_NONE;
@@ -2072,10 +2073,10 @@ static int Device2Ioctl(struct inode *pNode, struct file *File, unsigned int Req
       {
         Lng--;
 
-        if ((Port >= 0) && (Port < INPUTS))
+        if ((Port >= MIN) && (Port < INPUTS))
         {
           Pins  =  Device1GetInputPins(Port);
-          for (Tmp = 0;(Poi < Lng) && (Tmp < INPUT_PORT_PINS);Tmp++)
+          for (Tmp = MIN;(Poi < Lng) && (Tmp < INPUT_PORT_PINS);Tmp++)
           {
             if ((Pins & 0x0001))
             {
@@ -2095,7 +2096,7 @@ static int Device2Ioctl(struct inode *pNode, struct file *File, unsigned int Req
           if (Port < OUTPUTS)
           {
             Pins  =  Device1GetOutputPins(Port);
-            for (Tmp = 0;(Poi < Lng) && (Tmp < OUTPUT_PORT_PINS);Tmp++)
+            for (Tmp = MIN;(Poi < Lng) && (Tmp < OUTPUT_PORT_PINS);Tmp++)
             {
               if ((Pins & 0x0001))
               {
@@ -2130,9 +2131,9 @@ static int Device2Ioctl(struct inode *pNode, struct file *File, unsigned int Req
       if ((Lng > 0) && (Lng < BUFFER_LNG))
       {
 
-        if ((Port >= 0) && (Port < INPUTS))
+        if ((Port >= MIN) && (Port < INPUTS))
         {
-          for (Tmp = 0;(Poi < Lng) && (Tmp < INPUT_PORT_PINS);Tmp++)
+          for (Tmp = MIN;(Poi < Lng) && (Tmp < INPUT_PORT_PINS);Tmp++)
           {
             if (Tstpin.String[Poi] == '0')
             {
@@ -2155,7 +2156,7 @@ static int Device2Ioctl(struct inode *pNode, struct file *File, unsigned int Req
           if (Port < OUTPUTS)
           {
             Pins  =  Device1GetOutputPins(Port);
-            for (Tmp = 0;(Poi < Lng) && (Tmp < OUTPUT_PORT_PINS);Tmp++)
+            for (Tmp = MIN;(Poi < Lng) && (Tmp < OUTPUT_PORT_PINS);Tmp++)
             {
               if (Tstpin.String[Poi] == '0')
               {
@@ -2201,7 +2202,7 @@ static ssize_t Device2Read(struct file *File,char *Buffer,size_t Count,loff_t *O
 
   if (Count >= (INPUTS * (INPUT_PORT_PINS + OUTPUT_PORT_PINS + 1) + 2))
   {
-    for (Port = 0;Port < INPUTS;Port++)
+    for (Port = MIN;Port < INPUTS;Port++)
     {
       Pins  =  Device1GetInputPins(Port);
       for (Tmp = 0;Tmp < INPUT_PORT_PINS;Tmp++)
@@ -2346,7 +2347,7 @@ static enum hrtimer_restart NxtColorCommIntr(struct hrtimer *pTimer)
 
   hrtimer_forward_now(pTimer,NxtColorTime);
 
-  for (Port = 0;Port < NO_OF_INPUT_PORTS;Port++)
+  for (Port = MIN;Port < NO_OF_INPUT_PORTS;Port++)
   { // look at one port at a time
 
     if (NxtColorState[Port])
@@ -2605,7 +2606,7 @@ static enum hrtimer_restart Device3TimerInterrupt1(struct hrtimer *pTimer)
 
     default :
     {
-      for (Port = 0;Port < NO_OF_INPUT_PORTS;Port++)
+      for (Port = MIN;Port < NO_OF_INPUT_PORTS;Port++)
       { // look at one port at a time
 
         switch (InputPort[Port].State)
@@ -2872,7 +2873,7 @@ static enum hrtimer_restart Device3TimerInterrupt1(struct hrtimer *pTimer)
 
               pData   =  (UBYTE*)&((*pAnalog).NxtCol[Port]);
 
-              for (Tmp = 0;Tmp < NXTCOLOR_BYTES;Tmp++)
+              for (Tmp = MIN;Tmp < NXTCOLOR_BYTES;Tmp++)
               {
                 *pData  =  NxtColorBuffer[Port][Tmp];
                 pData++;
@@ -3032,7 +3033,7 @@ static enum hrtimer_restart Device3TimerInterrupt1(struct hrtimer *pTimer)
 
     //*****************************************************************************
 
-      for (Port = 0;Port < NO_OF_OUTPUT_PORTS;Port++)
+      for (Port = MIN;Port < NO_OF_OUTPUT_PORTS;Port++)
       { // look at one port at a time
 
         switch (OutputPort[Port].State)
@@ -3324,7 +3325,7 @@ static ssize_t Device3Write(struct file *File,const char *Buffer,size_t Count,lo
     Lng  =  Count;
     copy_from_user(Buf,Buffer,INPUTS);
 
-    for (Port = 0;Port < NO_OF_INPUT_PORTS;Port++)
+    for (Port = MIN;Port < NO_OF_INPUT_PORTS;Port++)
     {
       Char  =  Buf[Port];
       switch (Char)
@@ -3455,11 +3456,11 @@ static int Device3Init(void)
   }
   else
   {
-    for (Tmp = 0;Tmp < NO_OF_INPUT_PORTS;Tmp++)
+    for (Tmp = MIN;Tmp < NO_OF_INPUT_PORTS;Tmp++)
     {
       InputPort[Tmp]  =  InputPortDefault;
     }
-    for (Tmp = 0;Tmp < NO_OF_OUTPUT_PORTS;Tmp++)
+    for (Tmp = MIN;Tmp < NO_OF_OUTPUT_PORTS;Tmp++)
     {
       OutputPort[Tmp]  =  OutputPortDefault;
     }
@@ -3487,7 +3488,7 @@ static void Device3Exit(void)
   int     Tmp;
 
   hrtimer_cancel(&Device3Timer);
-  for (Tmp = 0;Tmp < NO_OF_INPUT_PORTS;Tmp++)
+  for (Tmp = MIN;Tmp < NO_OF_INPUT_PORTS;Tmp++)
   {
     InputPortFloat(Tmp);
   }
@@ -3509,6 +3510,17 @@ module_param (HwId, charp, 0);
 static int ModuleInit(void)
 {
   Hw  =  HWID;
+	
+	if(Hw==6)
+  {
+    printk("Mode LMS\n");
+    MIN = 0;
+  }
+  else 
+  {
+    printk("Mode Telnet\n");
+    MIN=1;
+  }
 
   if (Hw < PLATFORM_START)
   {

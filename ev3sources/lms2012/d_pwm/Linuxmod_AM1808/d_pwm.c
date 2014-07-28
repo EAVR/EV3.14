@@ -1,175 +1,190 @@
 /*
- * LEGO® MINDSTORMS EV3
+ * This is a slightly modified version of the original d_pwm.c file from Lego. 
+ * The aim of this edit was to double the resolution of the encoders. This modification 
+ * does not affect any other file and the new d_pwm.ko module should work on a non 
+ * modified EV3.
+ * To build this file, simply run make.
  *
- * Copyright (C) 2010-2013 The LEGO Group
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * Strasbourg, 07/16/2014 
  */
-
-/*! \page PwmModule PWM Module
- *
- */
-
-#define   HW_ID_SUPPORT
-
-#include  "../../lms2012/source/lms2012.h"
-#include  "../../lms2012/source/am1808.h"
-
-int       Hw         =  0;
-int       HwInvBits  =  0;
-
-#define   MODULE_NAME                   "pwm_module"
-#define   DEVICE1_NAME                  PWM_DEVICE
-#define   DEVICE2_NAME                  MOTOR_DEVICE
-
-
-#define   SOFT_TIMER_MS                 2
-#define   SOFT_TIMER_SETUP              (SOFT_TIMER_MS * 1000000)
 
 /*
- *  NO_OF_TACHO_SAMPLES holds the number of recent tacho samples
- */
-#define   NO_OF_TACHO_SAMPLES           128
-#define   NO_OF_OUTPUT_PORTS            4
+* LEGO® MINDSTORMS EV3
+*
+* Copyright (C) 2010-2013 The LEGO Group
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+*/
 
-#define   MAX_PWM_CNT                   (10000)
-#define   MAX_SPEED                     (100)
-#define   SPEED_PWMCNT_REL              (100) //(MAX_PWM_CNT/MAX_SPEED)
-#define   RAMP_FACTOR                   (1000)
-#define   MAX_SYNC_MOTORS               (2)
+/*! \page PwmModule PWM Module
+*
+*/
 
-//#define   COUNTS_PER_PULSE_LM           25600L
-//#define   COUNTS_PER_PULSE_MM           16200L
+#define HW_ID_SUPPORT
+//#define DEBUG
 
-#define   COUNTS_PER_PULSE_LM           12800L
-#define   COUNTS_PER_PULSE_MM           8100L
+#ifdef DEBUG
+  #define DEBUG_FREIN
+#endif
+
+#include "../../lms2012/source/lms2012.h"
+#include "../../lms2012/source/am1808.h"
+
+int Hw = 0;
+int HwInvBits = 0;
+
+#define MODULE_NAME "pwm_module"
+#define DEVICE1_NAME PWM_DEVICE
+#define DEVICE2_NAME MOTOR_DEVICE
+
+
+#define SOFT_TIMER_MS 2
+#define SOFT_TIMER_SETUP (SOFT_TIMER_MS * 1000000)
+
+/*
+* NO_OF_TACHO_SAMPLES holds the number of recent tacho samples
+*/
+#define NO_OF_TACHO_SAMPLES 128
+#define NO_OF_OUTPUT_PORTS 4
+
+#define MAX_PWM_CNT (10000)
+#define MAX_SPEED (100)
+#define SPEED_PWMCNT_REL (100) //(MAX_PWM_CNT/MAX_SPEED)
+#define RAMP_FACTOR (1000)
+#define MAX_SYNC_MOTORS (2)
+
+//#define COUNTS_PER_PULSE_LM 25600L
+//#define COUNTS_PER_PULSE_MM 16200L
+
+#define COUNTS_PER_PULSE_LM 12800L
+#define COUNTS_PER_PULSE_MM 8100L
 
 enum
 {
-  SAMPLES_BELOW_SPEED_25  =  0,
-  SAMPLES_SPEED_25_50     =  1,
-  SAMPLES_SPEED_50_75     =  2,
-  SAMPLES_ABOVE_SPEED_75  =  3,
-  NO_OF_SAMPLE_STEPS      =  4
+  SAMPLES_BELOW_SPEED_25 = 0,
+  SAMPLES_SPEED_25_50 = 1,
+  SAMPLES_SPEED_50_75 = 2,
+  SAMPLES_ABOVE_SPEED_75 = 3,
+  NO_OF_SAMPLE_STEPS = 4
 };
 
 
 /*
- * Defines related to hardware PWM output
- */
+* Defines related to hardware PWM output
+*/
 // TBCTL (Time-Base Control)
 // = = = = = = = = = = = = = = = = = = = = = = = = = =
-#define   TB_COUNT_UP                   0x0     // TBCNT MODE bits
-#define   TB_COUNT_FREEZE               0x3     // TBCNT MODE bits
-#define   TB_DISABLE                    0x0     // PHSEN bit
-#define   TB_ENABLE                     0x4
-#define   TB_SHADOW                     0x0     // PRDLD bit
-#define   TB_IMMEDIATE                  0x8
-#define   TB_SYNC_DISABLE               0x30    // SYNCOSEL bits
-#define   TB_HDIV1                      0x0     // HSPCLKDIV bits
-#define   TB_DIV1                       0x0     // CLKDIV bits
-#define   TB_UP                         0x2000  // PHSDIR bit
+#define TB_COUNT_UP 0x0 // TBCNT MODE bits
+#define TB_COUNT_FREEZE 0x3 // TBCNT MODE bits
+#define TB_DISABLE 0x0 // PHSEN bit
+#define TB_ENABLE 0x4
+#define TB_SHADOW 0x0 // PRDLD bit
+#define TB_IMMEDIATE 0x8
+#define TB_SYNC_DISABLE 0x30 // SYNCOSEL bits
+#define TB_HDIV1 0x0 // HSPCLKDIV bits
+#define TB_DIV1 0x0 // CLKDIV bits
+#define TB_UP 0x2000 // PHSDIR bit
 
 // CMPCTL (Compare Control)
 // = = = = = = = = = = = = = = = = = = = = = = = = = =
-#define   CC_CTR_A_ZERO                 0x0     // LOADAMODE bits
-#define   CC_CTR_B_ZERO                 0x0
-#define   CC_A_SHADOW                   0x00    // SHDWAMODE and SHDWBMODE bits
-#define   CC_B_SHADOW                   0x00
+#define CC_CTR_A_ZERO 0x0 // LOADAMODE bits
+#define CC_CTR_B_ZERO 0x0
+#define CC_A_SHADOW 0x00 // SHDWAMODE and SHDWBMODE bits
+#define CC_B_SHADOW 0x00
 
-#define   TBCTL                         0x0
-#define   TBPHS                         0x3
-#define   TBCNT                         0x4
-#define   TBPRD                         0x5
-#define   CMPCTL                        0x7
-#define   CMPA                          0x9
-#define   CMPB                          0xA
-#define   AQCTLA                        0xB
-#define   AQCTLB                        0xC
+#define TBCTL 0x0
+#define TBPHS 0x3
+#define TBCNT 0x4
+#define TBPRD 0x5
+#define CMPCTL 0x7
+#define CMPA 0x9
+#define CMPB 0xA
+#define AQCTLA 0xB
+#define AQCTLB 0xC
 
 
 /* SYS config register configuration and bits*/
 enum
 {
-  CFGCHIP1    =  0x60,
+  CFGCHIP1 = 0x60,
 };
 
 enum
 {
-  TBCLKSYNC   =  0x00001000,
+  TBCLKSYNC = 0x00001000,
 };
 
 
 /* TIMER64 register configuration */
 enum
 {
-  REVID       = 0,
-  EMUMGT      = 1,
-  GPINTGPEN   = 2,
-  GPDATGPDIR  = 3,
-  TIM12       = 4,
-  TIM34       = 5,
-  PRD12       = 6,
-  PRD34       = 7,
-  TCR         = 8,
-  TGCR        = 9,
-  WDTCR       = 10,
-  NOTUSED1    = 11,
-  NOTUSED2    = 12,
-  REL12       = 13,
-  REL34       = 14,
-  CAP12       = 15,
-  CAP34       = 16,
-  NOTUSED3    = 17,
-  NOTUSED4    = 18,
-  NOTUSED5    = 19,
-  NOTUSED6    = 20,
-  NOTUSED7    = 21,
-  NOTUSED8    = 22,
-  INTCTLSTAT  = 23,
-  CMP0        = 24,
-  CMP1        = 25,
-  CMP2        = 26,
-  CMP3        = 27,
-  CMP4        = 28,
-  CMP5        = 39,
-  CMP6        = 30,
-  CMP7        = 31,
+  REVID = 0,
+  EMUMGT = 1,
+  GPINTGPEN = 2,
+  GPDATGPDIR = 3,
+  TIM12 = 4,
+  TIM34 = 5,
+  PRD12 = 6,
+  PRD34 = 7,
+  TCR = 8,
+  TGCR = 9,
+  WDTCR = 10,
+  NOTUSED1 = 11,
+  NOTUSED2 = 12,
+  REL12 = 13,
+  REL34 = 14,
+  CAP12 = 15,
+  CAP34 = 16,
+  NOTUSED3 = 17,
+  NOTUSED4 = 18,
+  NOTUSED5 = 19,
+  NOTUSED6 = 20,
+  NOTUSED7 = 21,
+  NOTUSED8 = 22,
+  INTCTLSTAT = 23,
+  CMP0 = 24,
+  CMP1 = 25,
+  CMP2 = 26,
+  CMP3 = 27,
+  CMP4 = 28,
+  CMP5 = 39,
+  CMP6 = 30,
+  CMP7 = 31,
 };
 
 /* eCAP Register configuration */
 enum
 {
-  TSCTR       =  0,
-  CTRPHS      =  2,
-  CAP1        =  4,
-  CAP2        =  6,
-  CAP3        =  8,
-  CAP4        = 10,
-  ECCTL1      = 20,
-  ECCTL2      = 21,
-  ECEINT      = 22,
-  ECFLG       = 23,
-  ECCLR       = 24,
-  ECFRC       = 25,
-  ECAP_REVID  = 46,
+  TSCTR = 0,
+  CTRPHS = 2,
+  CAP1 = 4,
+  CAP2 = 6,
+  CAP3 = 8,
+  CAP4 = 10,
+  ECCTL1 = 20,
+  ECCTL2 = 21,
+  ECEINT = 22,
+  ECFLG = 23,
+  ECCLR = 24,
+  ECFRC = 25,
+  ECAP_REVID = 46,
 };
 
 
-#define  NON_INV   1
-#define  INV      -1
+#define NON_INV 1
+#define INV -1
 
 
 enum
@@ -213,97 +228,104 @@ enum
 };
 
 
-typedef   struct
+typedef struct
 {
-  SLONG   IrqTacho;
-  SLONG   TachoCnt;
-  SLONG   TachoSensor;
-  SLONG   TimeCnt;
-  SLONG   TimeInc;
-  SLONG   OldTachoCnt;
-  SLONG   TachoCntUp;
-  SLONG   TachoCntConst;
-  SLONG   TachoCntDown;
-  SLONG   RampUpFactor;
-  SLONG   RampUpOffset;
-  SLONG   RampDownFactor;
-  SLONG   PVal;
-  SLONG   IVal;
-  SLONG   DVal;
-  SLONG   OldSpeedErr;
-  SLONG   Power;
-  SLONG   TargetPower;
-  SLONG   Dir;
-  SBYTE   Speed;
-  SBYTE   TargetSpeed;
-  SBYTE   TargetBrake;
-  UBYTE   BrakeAfter;
-  UBYTE   LockRampDown;
-  SBYTE   Pol;
-  UBYTE   Direction;
-  UBYTE   Type;
-  UBYTE   State;
-  UBYTE   TargetState;
-  UBYTE   Owner;
-  UBYTE   Mutex;
-  UBYTE   DirChgPtr;
-  SWORD   TurnRatio;
+  SLONG IrqTacho;
+  SLONG TachoCnt;
+  SLONG TachoSensor;
+  SLONG TimeCnt;
+  SLONG TimeInc;
+  SLONG OldTachoCnt;
+  SLONG TachoCntUp;
+  SLONG TachoCntConst;
+  SLONG TachoCntDown;
+  SLONG RampUpFactor;
+  SLONG RampUpOffset;
+  SLONG RampDownFactor;
+  SLONG PVal;
+  SLONG IVal;
+  SLONG DVal;
+  SLONG OldSpeedErr;
+  SLONG Power;
+  SLONG TargetPower;
+  SLONG Dir;
+  SBYTE Speed;
+  SBYTE TargetSpeed;
+  SBYTE TargetBrake;
+  UBYTE BrakeAfter;
+  UBYTE LockRampDown;
+  SBYTE Pol;
+  UBYTE Direction;
+  UBYTE Type;
+  UBYTE State;
+  UBYTE TargetState;
+  UBYTE Owner;
+  UBYTE Mutex;
+  UBYTE DirChgPtr;
+  SWORD TurnRatio;
 }MOTOR;
 
 
-typedef   struct
+typedef struct
 {
-  ULONG   TachoArray[NO_OF_TACHO_SAMPLES];
-  UBYTE   ArrayPtr;
-  UBYTE   ArrayPtrOld;
+  ULONG TachoArray[NO_OF_TACHO_SAMPLES];
+  UBYTE ArrayPtr;
+  UBYTE ArrayPtrOld;
 }TACHOSAMPLES;
 
 
-static    int  ModuleInit(void);
-static    void ModuleExit(void);
+static int ModuleInit(void);
+static void ModuleExit(void);
 
-static    irqreturn_t IntA (int irq, void * dev);
-static    irqreturn_t IntB (int irq, void * dev);
-static    irqreturn_t IntC (int irq, void * dev);
-static    irqreturn_t IntD (int irq, void * dev);
+static irqreturn_t IntA (int irq, void * dev);
+static irqreturn_t IntB (int irq, void * dev);
+static irqreturn_t IntC (int irq, void * dev);
+static irqreturn_t IntD (int irq, void * dev);
 
-UBYTE     dCalculateSpeed(UBYTE No, SBYTE *pSpeed);
-void      SetGpioRisingIrq(UBYTE PinNo, irqreturn_t (*IntFuncPtr)(int, void *));
-void      GetSyncDurationCnt(SLONG *pCount0, SLONG *pCount1);
-void      CheckforEndOfSync(void);
+static irqreturn_t IntA1 (int irq, void * dev);
+static irqreturn_t IntB1 (int irq, void * dev);
+static irqreturn_t IntC1 (int irq, void * dev);
+static irqreturn_t IntD1 (int irq, void * dev);
+
+void Tachoval(int port);
+
+UBYTE dCalculateSpeed(UBYTE No, SBYTE *pSpeed);
+void SetGpioRisingIrq(UBYTE PinNo, irqreturn_t (*IntFuncPtr)(int, void *));
+void GetSyncDurationCnt(SLONG *pCount0, SLONG *pCount1);
+void CheckforEndOfSync(void);
 
 
-void      SetDutyMA(ULONG Duty);
-void      SetDutyMB(ULONG Duty);
-void      SetDutyMC(ULONG Duty);
-void      SetDutyMD(ULONG Duty);
+void SetDutyMA(ULONG Duty);
+void SetDutyMB(ULONG Duty);
+void SetDutyMC(ULONG Duty);
+void SetDutyMD(ULONG Duty);
 
-#include  <linux/kernel.h>
-#include  <linux/fs.h>
-#include  <linux/signal.h>
-#include  <linux/sched.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/signal.h>
+#include <linux/sched.h>
 
-#ifndef   PCASM
-#include  <linux/ioport.h>
-#include  <asm/gpio.h>
-#include  <asm/uaccess.h>
-#include  <linux/module.h>
-#include  <linux/miscdevice.h>
+#ifndef PCASM
+#include <linux/ioport.h>
+#include <asm/gpio.h>
+#include <asm/uaccess.h>
+#include <linux/module.h>
+#include <linux/miscdevice.h>
 
-#include  <linux/mm.h>
-#include  <linux/hrtimer.h>
+#include <linux/mm.h>
+#include <linux/hrtimer.h>
 
-#include  <linux/init.h>
-#include  <asm/siginfo.h>     //siginfo
-#include  <linux/rcupdate.h>  //rcu_read_lock
-#include  <linux/uaccess.h>
-#include  <linux/debugfs.h>
+#include <linux/init.h>
+#include <asm/siginfo.h> //siginfo
+#include <linux/rcupdate.h> //rcu_read_lock
+#include <linux/uaccess.h>
+#include <linux/debugfs.h>
 
-#include  <asm/io.h>
-#include  <asm/uaccess.h>
+#include <asm/io.h>
+#include <asm/uaccess.h>
 
-#include  <linux/irq.h>
-#include  <linux/interrupt.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("The LEGO Group");
@@ -313,14 +335,14 @@ MODULE_SUPPORTED_DEVICE(DEVICE1_NAME);
 module_init(ModuleInit);
 module_exit(ModuleExit);
 
-#include  <mach/mux.h>
+#include <mach/mux.h>
 
 #else
 // Keep Eclipse happy
 #endif
 
 
-enum      OutputPortPins
+enum OutputPortPins
 {
   PWM,
   DIR0,
@@ -333,383 +355,389 @@ enum      OutputPortPins
 };
 
 
-#define   IRQA_PINNO                  ((pOutputPortPin[Hw])[(0 * OUTPUT_PORT_PINS) + INT].Pin)
-#define   IRQB_PINNO                  ((pOutputPortPin[Hw])[(1 * OUTPUT_PORT_PINS) + INT].Pin)
-#define   IRQC_PINNO                  ((pOutputPortPin[Hw])[(2 * OUTPUT_PORT_PINS) + INT].Pin)
-#define   IRQD_PINNO                  ((pOutputPortPin[Hw])[(3 * OUTPUT_PORT_PINS) + INT].Pin)
+#define IRQA_PINNO ((pOutputPortPin[Hw])[(0 * OUTPUT_PORT_PINS) + INT].Pin)
+#define IRQB_PINNO ((pOutputPortPin[Hw])[(1 * OUTPUT_PORT_PINS) + INT].Pin)
+#define IRQC_PINNO ((pOutputPortPin[Hw])[(2 * OUTPUT_PORT_PINS) + INT].Pin)
+#define IRQD_PINNO ((pOutputPortPin[Hw])[(3 * OUTPUT_PORT_PINS) + INT].Pin)
 
+#define IRQA_PINN1 ((pOutputPortPin[Hw])[(0 * OUTPUT_PORT_PINS) + DIR].Pin)
+#define IRQB_PINN1 ((pOutputPortPin[Hw])[(1 * OUTPUT_PORT_PINS) + DIR].Pin)
+#define IRQC_PINN1 ((pOutputPortPin[Hw])[(2 * OUTPUT_PORT_PINS) + DIR].Pin)
+#define IRQD_PINN1 ((pOutputPortPin[Hw])[(3 * OUTPUT_PORT_PINS) + DIR].Pin)
 
 /* EP2 hardware have sanyo motor driver */
-INPIN     EP2_OutputPortPin[][OUTPUT_PORT_PINS] =
+INPIN EP2_OutputPortPin[][OUTPUT_PORT_PINS] =
 {
   { // Output port A
     { EPWM1B , NULL, 0 }, // PWM motor A (GPIO 2_14)
     { GP3_15 , NULL, 0 }, // DIR0 A
-    { GP3_6  , NULL, 0 }, // DIR1 A
-    { GP5_11 , NULL, 0 }, // INT  A
-    { GP0_4  , NULL, 0 }, // DIR  A
-    { -1     , NULL, 0 }, // Sleep AB
-    { -1     , NULL, 0 }, // Fault AB
+    { GP3_6 , NULL, 0 }, // DIR1 A
+    { GP5_11 , NULL, 0 }, // INT A
+    { GP0_4 , NULL, 0 }, // DIR A
+    { -1 , NULL, 0 }, // Sleep AB
+    { -1 , NULL, 0 }, // Fault AB
   },
   { // Output port B
     { EPWM1A , NULL, 0 }, // PWM motor B (GPIO 2_15)
-    { GP2_1  , NULL, 0 }, // DIR0 B
-    { GP0_3  , NULL, 0 }, // DIR1 B
-    { GP5_8  , NULL, 0 }, // INT  B
-    { GP2_9  , NULL, 0 }, // DIR  B
-    { -1     , NULL, 0 }, // Sleep AB
-    { -1     , NULL, 0 }, // Fault AB
+    { GP2_1 , NULL, 0 }, // DIR0 B
+    { GP0_3 , NULL, 0 }, // DIR1 B
+    { GP5_8 , NULL, 0 }, // INT B
+    { GP2_9 , NULL, 0 }, // DIR B
+    { -1 , NULL, 0 }, // Sleep AB
+    { -1 , NULL, 0 }, // Fault AB
   },
   { // Output port C
-    { APWM0  , NULL, 0 }, // PWM motor C (GPIO 8_7)
-    { GP6_8  , NULL, 0 }, // DIR0 C
-    { GP5_9  , NULL, 0 }, // DIR1 C
-    { GP5_13 , NULL, 0 }, // INT  C
-    { GP3_14 , NULL, 0 }, // DIR  C
-    { -1     , NULL, 0 }, // Sleep AB
-    { -1     , NULL, 0 }, // Fault AB
+    { APWM0 , NULL, 0 }, // PWM motor C (GPIO 8_7)
+    { GP6_8 , NULL, 0 }, // DIR0 C
+    { GP5_9 , NULL, 0 }, // DIR1 C
+    { GP5_13 , NULL, 0 }, // INT C
+    { GP3_14 , NULL, 0 }, // DIR C
+    { -1 , NULL, 0 }, // Sleep AB
+    { -1 , NULL, 0 }, // Fault AB
   },
   { // Output port D
-    { APWM1  , NULL, 0 }, // PWM MOTOR D (GPIO 0_0)
-    { GP5_3  , NULL, 0 }, // DIR0 D
+    { APWM1 , NULL, 0 }, // PWM MOTOR D (GPIO 0_0)
+    { GP5_3 , NULL, 0 }, // DIR0 D
     { GP5_10 , NULL, 0 }, // DIR1 D
-    { GP6_9  , NULL, 0 }, // INT  D
-    { GP2_8  , NULL, 0 }, // DIR  D
-    { -1     , NULL, 0 }, // Sleep AB
-    { -1     , NULL, 0 }, // Fault AB
+    { GP6_9 , NULL, 0 }, // INT D
+    { GP2_8 , NULL, 0 }, // DIR D
+    { -1 , NULL, 0 }, // Sleep AB
+    { -1 , NULL, 0 }, // Fault AB
   },
 };
 
 
 /* FINALB have TI motor driver */
-INPIN     FINALB_OutputPortPin[][OUTPUT_PORT_PINS] =
+INPIN FINALB_OutputPortPin[][OUTPUT_PORT_PINS] =
 {
   { // Output port A
     { EPWM1A , NULL, 0 }, // PWM motor A (GPIO 2_15)
-    { GP0_3  , NULL, 0 }, // DIR0 A
+    { GP0_3 , NULL, 0 }, // DIR0 A
     { GP4_12 , NULL, 0 }, // DIR1 A
-    { GP5_11 , NULL, 0 }, // INT  A
-    { GP0_4  , NULL, 0 }, // DIR  A
+    { GP5_11 , NULL, 0 }, // INT A
+    { GP0_4 , NULL, 0 }, // DIR A
     { GP3_10 , NULL, 0 }, // Sleep AB
-    { GP2_0  , NULL, 0 }, // Fault AB
+    { GP2_0 , NULL, 0 }, // Fault AB
   },
   { // Output port B
     { EPWM1B , NULL, 0 }, // PWM motor B (GPIO 2_14)
     { GP3_15 , NULL, 0 }, // DIR0 B
-    { GP3_6  , NULL, 0 }, // DIR1 B
-    { GP5_8  , NULL, 0 }, // INT  B
-    { GP2_9  , NULL, 0 }, // DIR  B
+    { GP3_6 , NULL, 0 }, // DIR1 B
+    { GP5_8 , NULL, 0 }, // INT B
+    { GP2_9 , NULL, 0 }, // DIR B
     { GP3_10 , NULL, 0 }, // Sleep AB - Same as above
-    { GP2_0  , NULL, 0 }, // Fault AB - Same as above
+    { GP2_0 , NULL, 0 }, // Fault AB - Same as above
   },
   { // Output port C
-    { APWM1  , NULL, 0 }, // PWM motor C (GPIO 0_0)
+    { APWM1 , NULL, 0 }, // PWM motor C (GPIO 0_0)
     { GP5_10 , NULL, 0 }, // DIR0 C
-    { GP5_3  , NULL, 0 }, // DIR1 C
-    { GP5_13 , NULL, 0 }, // INT  C
-    { GP3_14 , NULL, 0 }, // DIR  C
-    { GP2_3  , NULL, 0 }, // Sleep CD
-    { GP6_0  , NULL, 0 }, // Fault CD
+    { GP5_3 , NULL, 0 }, // DIR1 C
+    { GP5_13 , NULL, 0 }, // INT C
+    { GP3_14 , NULL, 0 }, // DIR C
+    { GP2_3 , NULL, 0 }, // Sleep CD
+    { GP6_0 , NULL, 0 }, // Fault CD
   },
   { // Output port D
-    { APWM0  , NULL, 0 }, // PWM MOTOR D (GPIO 8_7)
-    { GP6_8  , NULL, 0 }, // DIR0 D
-    { GP5_9  , NULL, 0 }, // DIR1 D
-    { GP6_9  , NULL, 0 }, // INT  D
-    { GP2_8  , NULL, 0 }, // DIR  D
-    { GP2_3  , NULL, 0 }, // Sleep CD - Same as above
-    { GP6_0  , NULL, 0 }, // Fault CD - Same as above
+    { APWM0 , NULL, 0 }, // PWM MOTOR D (GPIO 8_7)
+    { GP6_8 , NULL, 0 }, // DIR0 D
+    { GP5_9 , NULL, 0 }, // DIR1 D
+    { GP6_9 , NULL, 0 }, // INT D
+    { GP2_8 , NULL, 0 }, // DIR D
+    { GP2_3 , NULL, 0 }, // Sleep CD - Same as above
+    { GP6_0 , NULL, 0 }, // Fault CD - Same as above
   },
 };
 
 
-INPIN     FINAL_OutputPortPin[][OUTPUT_PORT_PINS] =
+INPIN FINAL_OutputPortPin[][OUTPUT_PORT_PINS] =
 {
   { // Output port A
     { EPWM1A , NULL, 0 }, // PWM motor A (GPIO 2_15)
-    { GP0_3  , NULL, 0 }, // DIR0 A
+    { GP0_3 , NULL, 0 }, // DIR0 A
     { GP4_12 , NULL, 0 }, // DIR1 A
-    { GP5_11 , NULL, 0 }, // INT  A
-    { GP0_4  , NULL, 0 }, // DIR  A
+    { GP5_11 , NULL, 0 }, // INT A
+    { GP0_4 , NULL, 0 }, // DIR A
     { GP3_10 , NULL, 0 }, // Sleep AB
-    { GP2_0  , NULL, 0 }, // Fault AB
+    { GP2_0 , NULL, 0 }, // Fault AB
   },
   { // Output port B
     { EPWM1B , NULL, 0 }, // PWM motor B (GPIO 2_14)
     { GP3_15 , NULL, 0 }, // DIR0 B
-    { GP3_6  , NULL, 0 }, // DIR1 B
-    { GP5_8  , NULL, 0 }, // INT  B
-    { GP2_9  , NULL, 0 }, // DIR  B
+    { GP3_6 , NULL, 0 }, // DIR1 B
+    { GP5_8 , NULL, 0 }, // INT B
+    { GP2_9 , NULL, 0 }, // DIR B
     { GP3_10 , NULL, 0 }, // Sleep AB - Same as above
-    { GP2_0  , NULL, 0 }, // Fault AB - Same as above
+    { GP2_0 , NULL, 0 }, // Fault AB - Same as above
   },
   { // Output port C
-    { APWM1  , NULL, 0 }, // PWM motor C (GPIO 0_0)
+    { APWM1 , NULL, 0 }, // PWM motor C (GPIO 0_0)
     { GP5_10 , NULL, 0 }, // DIR0 C
-    { GP5_3  , NULL, 0 }, // DIR1 C
-    { GP5_13 , NULL, 0 }, // INT  C
-    { GP3_14 , NULL, 0 }, // DIR  C
-    { GP2_3  , NULL, 0 }, // Sleep CD
-    { GP6_0  , NULL, 0 }, // Fault CD
+    { GP5_3 , NULL, 0 }, // DIR1 C
+    { GP5_13 , NULL, 0 }, // INT C
+    { GP3_14 , NULL, 0 }, // DIR C
+    { GP2_3 , NULL, 0 }, // Sleep CD
+    { GP6_0 , NULL, 0 }, // Fault CD
   },
   { // Output port D
-    { APWM0  , NULL, 0 }, // PWM MOTOR D (GPIO 8_7)
-    { GP6_8  , NULL, 0 }, // DIR0 D
-    { GP5_9  , NULL, 0 }, // DIR1 D
-    { GP6_9  , NULL, 0 }, // INT  D
-    { GP2_8  , NULL, 0 }, // DIR  D
-    { GP2_3  , NULL, 0 }, // Sleep CD - Same as above
-    { GP6_0  , NULL, 0 }, // Fault CD - Same as above
+    { APWM0 , NULL, 0 }, // PWM MOTOR D (GPIO 8_7)
+    { GP6_8 , NULL, 0 }, // DIR0 D
+    { GP5_9 , NULL, 0 }, // DIR1 D
+    { GP6_9 , NULL, 0 }, // INT D
+    { GP2_8 , NULL, 0 }, // DIR D
+    { GP2_3 , NULL, 0 }, // Sleep CD - Same as above
+    { GP6_0 , NULL, 0 }, // Fault CD - Same as above
   },
 };
 
 
-INPIN     *pOutputPortPin[] =
+INPIN *pOutputPortPin[] =
 {
-  [FINAL]     =   (INPIN*)&FINAL_OutputPortPin[0],    //  FINAL   platform
-  [FINALB]    =   (INPIN*)&FINALB_OutputPortPin[0],   //  FINALB  platform
-  [EP2]       =   (INPIN*)&EP2_OutputPortPin[0],      //  EP2     platform
+  [FINAL] = (INPIN*)&FINAL_OutputPortPin[0], // FINAL platform
+  [FINALB] = (INPIN*)&FINALB_OutputPortPin[0], // FINALB platform
+  [EP2] = (INPIN*)&EP2_OutputPortPin[0], // EP2 platform
 };
 
-
-#define   OutputReadDir(port,pin)       ((HwInvBits ^ (*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).in_data)  &  pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask)
-#define   READDirA                      OutputReadDir(0,DIR)
-#define   READDirB                      OutputReadDir(1,DIR)
-#define   READDirC                      OutputReadDir(2,DIR)
-#define   READDirD                      OutputReadDir(3,DIR)
+#define OutputReadDir(port,pin) ((HwInvBits ^ (*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).in_data) & pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask)
+#define READDirA OutputReadDir(0,DIR)
+#define READDirB OutputReadDir(1,DIR)
+#define READDirC OutputReadDir(2,DIR)
+#define READDirD OutputReadDir(3,DIR)
 
 /*
- * Variables
- */
-static    ULONG   *GPIO;
-static    ULONG   *SYSCFG0;
-static    ULONG   *SYSCFG1;
-static    ULONG   *PLLC1;
-static    ULONG   *PSC1;
-static    UWORD   *eHRPWM1;
-static    UWORD   *eCAP0;
-static    UWORD   *eCAP1;
-static    ULONG   *TIMER64P3;
+* Variables
+*/
+static ULONG *GPIO;
+static ULONG *SYSCFG0;
+static ULONG *SYSCFG1;
+static ULONG *PLLC1;
+static ULONG *PSC1;
+static UWORD *eHRPWM1;
+static UWORD *eCAP0;
+static UWORD *eCAP1;
+static ULONG *TIMER64P3;
 
-static    MOTOR   Motor[NO_OF_OUTPUT_PORTS];
-static    SLONG   *(StepPowerSteps[NO_OF_OUTPUT_PORTS]);
-static    SLONG   *(TachoSteps[NO_OF_OUTPUT_PORTS])  =  {&(Motor[0].TachoCnt),&(Motor[1].TachoCnt),&(Motor[2].TachoCnt),&(Motor[3].TachoCnt)};
-static    SLONG   *(TimerSteps[NO_OF_OUTPUT_PORTS])  =  {&(Motor[0].TimeCnt),&(Motor[1].TimeCnt),&(Motor[2].TimeCnt),&(Motor[3].TimeCnt)};
+static MOTOR Motor[NO_OF_OUTPUT_PORTS];
+static SLONG *(StepPowerSteps[NO_OF_OUTPUT_PORTS]);
+static SLONG *(TachoSteps[NO_OF_OUTPUT_PORTS]) = {&(Motor[0].TachoCnt),&(Motor[1].TachoCnt),&(Motor[2].TachoCnt),&(Motor[3].TachoCnt)};
+static SLONG *(TimerSteps[NO_OF_OUTPUT_PORTS]) = {&(Motor[0].TimeCnt),&(Motor[1].TimeCnt),&(Motor[2].TimeCnt),&(Motor[3].TimeCnt)};
 
-static    void    (*SetDuty[NO_OF_OUTPUT_PORTS])(ULONG)  = {SetDutyMA,SetDutyMB,SetDutyMC,SetDutyMD};
+static void (*SetDuty[NO_OF_OUTPUT_PORTS])(ULONG) = {SetDutyMA,SetDutyMB,SetDutyMC,SetDutyMD};
 
-static    TACHOSAMPLES    TachoSamples[NO_OF_OUTPUT_PORTS];
-static    UBYTE           ReadyStatus = 0;
-static    UBYTE           TestStatus  = 0;
+static TACHOSAMPLES TachoSamples[NO_OF_OUTPUT_PORTS];
+static UBYTE ReadyStatus = 0;
+static UBYTE TestStatus = 0;
 
-static    MOTORDATA       MotorData[NO_OF_OUTPUT_PORTS];
-static    MOTORDATA       *pMotor = MotorData;
+static MOTORDATA MotorData[NO_OF_OUTPUT_PORTS];
+static MOTORDATA *pMotor = MotorData;
 
-static    ULONG           TimeOutSpeed0[NO_OF_OUTPUT_PORTS];
-static    UBYTE           MinRegEnabled[NO_OF_OUTPUT_PORTS];
+static unsigned char Encoder [NO_OF_OUTPUT_PORTS];
+static unsigned char Encoder_prev [NO_OF_OUTPUT_PORTS];
 
-static    UBYTE           SyncMNos[MAX_SYNC_MOTORS];
-static    SBYTE           MaxSyncSpeed;
+static ULONG TimeOutSpeed0[NO_OF_OUTPUT_PORTS];
+static UBYTE MinRegEnabled[NO_OF_OUTPUT_PORTS];
 
-static    struct hrtimer  Device1Timer;
-static    ktime_t         Device1Time;
+static UBYTE SyncMNos[MAX_SYNC_MOTORS];
+static SBYTE MaxSyncSpeed;
 
-static    UBYTE           PrgStopTimer[NO_OF_OUTPUT_PORTS];
+static struct hrtimer Device1Timer;
+static ktime_t Device1Time;
+
+static UBYTE PrgStopTimer[NO_OF_OUTPUT_PORTS];
 
 
-static    ULONG    CountsPerPulse[4]     = {COUNTS_PER_PULSE_LM, COUNTS_PER_PULSE_LM, COUNTS_PER_PULSE_LM, COUNTS_PER_PULSE_LM};
+static ULONG CountsPerPulse[4] = {COUNTS_PER_PULSE_LM, COUNTS_PER_PULSE_LM, COUNTS_PER_PULSE_LM, COUNTS_PER_PULSE_LM};
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- *
- */
-/*! \brief    Number of average samples for each motor
- *
- *  - Medium motor = 1, 2,  4,  8
- *  - Large motor  = 2, 8, 16, 32
- *
- *  Medium motor has not the jitter on the tacho when as large motor because
- *  it has one gear wheel less that the large motor.
- *
- *  Medium motor reaction time is much faster than large motor due to smaller motor
- *  and smaller gearbox
- */
-static    UBYTE    SamplesMediumMotor[NO_OF_SAMPLE_STEPS] = {2, 4,  8,  16};
-static    UBYTE    SamplesLargeMotor[NO_OF_SAMPLE_STEPS]  = {4, 16, 32, 64};
-//static    UBYTE    SamplesMediumMotor[NO_OF_SAMPLE_STEPS] = {1, 2,  4,  8};
-//static    UBYTE    SamplesLargeMotor[NO_OF_SAMPLE_STEPS]  = {2, 8, 16, 32};
-static    UBYTE    *SamplesPerSpeed[NO_OF_OUTPUT_PORTS]   = {SamplesLargeMotor, SamplesLargeMotor, SamplesLargeMotor, SamplesLargeMotor};
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*
+*/
+/*! \brief Number of average samples for each motor
+*
+* - Medium motor = 1, 2, 4, 8
+* - Large motor = 2, 8, 16, 32
+*
+* Medium motor has not the jitter on the tacho when as large motor because
+* it has one gear wheel less that the large motor.
+*
+* Medium motor reaction time is much faster than large motor due to smaller motor
+* and smaller gearbox
+*/
+static UBYTE SamplesMediumMotor[NO_OF_SAMPLE_STEPS] = {2, 4, 8, 16};
+static UBYTE SamplesLargeMotor[NO_OF_SAMPLE_STEPS] = {4, 16, 32, 64};
+//static UBYTE SamplesMediumMotor[NO_OF_SAMPLE_STEPS] = {1, 2, 4, 8};
+//static UBYTE SamplesLargeMotor[NO_OF_SAMPLE_STEPS] = {2, 8, 16, 32};
+static UBYTE *SamplesPerSpeed[NO_OF_OUTPUT_PORTS] = {SamplesLargeMotor, SamplesLargeMotor, SamplesLargeMotor, SamplesLargeMotor};
 
-static    UBYTE    AVG_TACHO_COUNTS[NO_OF_OUTPUT_PORTS]   = {2,2,2,2};
-static    ULONG    AVG_COUNTS[NO_OF_OUTPUT_PORTS]         = {(2 * COUNTS_PER_PULSE_LM),(2 * COUNTS_PER_PULSE_LM),(2 * COUNTS_PER_PULSE_LM),(2 * COUNTS_PER_PULSE_LM)};
-
-
-/*
- * Macros
- */
-#define   FLOATFaultPins                {\
-                                          if (((pOutputPortPin[Hw])[(0 * OUTPUT_PORT_PINS) + FAULT].Pin) != -1)\
-                                          {\
-                                            (*pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + FAULT].pGpio).dir |=  pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + FAULT].Mask;\
-                                          }\
-                                          if (((pOutputPortPin[Hw])[(2 * OUTPUT_PORT_PINS) + FAULT].Pin) != -1)\
-                                          {\
-                                            (*pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + FAULT].pGpio).dir |=  pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + FAULT].Mask;\
-                                          }\
-                                        }
-
-#define   SETSleepPins                  {\
-                                          if (((pOutputPortPin[Hw])[(0 * OUTPUT_PORT_PINS) + SLEEP].Pin) != -1)\
-                                          {\
-                                            (*pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + SLEEP].pGpio).set_data  =  pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + SLEEP].Mask;\
-                                            (*pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + SLEEP].pGpio).dir      &= ~pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + SLEEP].Mask;\
-                                          }\
-                                          if (((pOutputPortPin[Hw])[(2 * OUTPUT_PORT_PINS) + SLEEP].Pin) != -1)\
-                                          {\
-                                            (*pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + SLEEP].pGpio).set_data  =  pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + SLEEP].Mask;\
-                                            (*pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + SLEEP].pGpio).dir      &= ~pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + SLEEP].Mask;\
-                                          }\
-                                        }
-
-#define   SETMotorType(Port, NewType)   {\
-                                          Motor[Port].Type = NewType;\
-                                          if (TYPE_MINITACHO == NewType)\
-                                          {\
-                                            CountsPerPulse[Port]      =  COUNTS_PER_PULSE_MM;\
-                                            SamplesPerSpeed[Port]     = SamplesMediumMotor;\
-                                          }\
-                                          else\
-                                          {\
-                                            CountsPerPulse[Port]      =  COUNTS_PER_PULSE_LM;\
-                                            SamplesPerSpeed[Port]     =  SamplesLargeMotor;\
-                                          }\
-                                        }
-
-#define   SETAvgTachoCount(Port, Speed) {\
-                                          if (Speed > 80)\
-                                          {\
-                                            AVG_TACHO_COUNTS[Port] = SamplesPerSpeed[Port][3];\
-                                            AVG_COUNTS[Port]       = SamplesPerSpeed[Port][3] * CountsPerPulse[Port];\
-                                          }\
-                                          else\
-                                          {\
-                                            if (Speed > 60)\
-                                            {\
-                                              AVG_TACHO_COUNTS[Port] = SamplesPerSpeed[Port][2];\
-                                              AVG_COUNTS[Port]       = SamplesPerSpeed[Port][2] * CountsPerPulse[Port];\
-                                            }\
-                                            else\
-                                            {\
-                                              if (Speed > 40)\
-                                              {\
-                                                AVG_TACHO_COUNTS[Port] = SamplesPerSpeed[Port][1];\
-                                                AVG_COUNTS[Port]       = SamplesPerSpeed[Port][1] * CountsPerPulse[Port];\
-                                              }\
-                                              else\
-                                              {\
-                                                AVG_TACHO_COUNTS[Port] = SamplesPerSpeed[Port][0];\
-                                                AVG_COUNTS[Port]       = SamplesPerSpeed[Port][0] * CountsPerPulse[Port];\
-                                              }\
-                                            }\
-                                          }\
-                                        }
-
-#define   FREERunning24bittimer         ((ULONG)((((ULONG*)(TIMER64P3))[TIM34])>>8))
-
-#define   CLEARTachoArray(No)           {\
-                                          Motor[No].DirChgPtr = 0;\
-                                          memset(&TachoSamples[No], 0, sizeof(TACHOSAMPLES));\
-                                        }
-
-#define   OutputFloat(port,pin)         {\
-                                          (*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).dir |=  pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask;\
-                                        }
-
-#define   OutputRead(port,pin)          ((*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).in_data & pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask)
-
-#define   OutputHigh(port,pin)          {\
-                                          (*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).set_data  =  pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask;\
-                                          (*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).dir      &= ~pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask;\
-                                        }
-
-#define   OutputLow(port,pin)           {\
-                                          (*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).clr_data  =  pOutputPortPin[Hw][(OUTPUT_PORT_PINS * port) + pin].Mask;\
-                                          (*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).dir      &= ~pOutputPortPin[Hw][(OUTPUT_PORT_PINS * port) + pin].Mask;\
-                                        }
-
-
-#define   EHRPWMClkDis                  {\
-                                          eHRPWM1[TBCTL]  = (TB_UP | TB_DISABLE | TB_SHADOW | TB_SYNC_DISABLE | TB_HDIV1 | TB_DIV1 | TB_COUNT_FREEZE);\
-                                        }
-
-#define   EHRPWMClkEna                  {\
-                                          eHRPWM1[TBCTL]  = (TB_UP | TB_DISABLE | TB_SHADOW | TB_SYNC_DISABLE | TB_HDIV1 | TB_DIV1 | TB_COUNT_UP);\
-                                          REGUnlock;\
-                                          iowrite32((ioread32(&SYSCFG0[CFGCHIP1]) | TBCLKSYNC),&SYSCFG0[CFGCHIP1]); /*This is the clock to all eHRPWM's*/\
-                                          REGLock;\
-                                        }
-
-#define   STOPPwm                       {\
-                                          iowrite16(0x00, &eCAP0[0x15]);\
-                                          iowrite16(0x00, &eCAP1[0x15]);\
-                                          TIMER64P3[TGCR]  = 0x00000000;\
-                                          iowrite16(0x00, &eHRPWM1[TBCTL]);\
-                                          iowrite16(0x00, &eHRPWM1[CMPCTL]);\
-                                          EHRPWMClkDis;\
-                                        }
-
-#define   SETPwmFreqKHz(KHz)            {\
-                                          eHRPWM1[TBPRD] = KHz; /* For Motor A and Motor B */\
-                                          eCAP0[CAP1]    = KHz; /* For Motor C             */\
-                                          eCAP1[CAP1]    = KHz; /* For Motor D             */\
-                                        }
-
-#define   SETUPPwmModules               { \
-                                          \
-                                          /* eHRPWM Module */\
-                                          EHRPWMClkDis;\
-                                          eHRPWM1[TBPHS]  = 0;\
-                                          eHRPWM1[TBCNT]  = 0;\
-                                          eHRPWM1[CMPCTL] = (CC_A_SHADOW | CC_B_SHADOW | CC_CTR_A_ZERO | CC_CTR_B_ZERO);\
-                                          eHRPWM1[AQCTLA] = 0x00000021;\
-                                          eHRPWM1[AQCTLB] = 0x00000201;\
-                                          EHRPWMClkEna;\
-                                          \
-                                          /* eCAP modules - APWM */\
-                                          (eCAP0)[TSCTR]    = 0;\
-                                          (eCAP1)[TSCTR]    = 0;\
-                                          (eCAP0)[CTRPHS]   = 0;\
-                                          (eCAP1)[CTRPHS]   = 0;\
-                                          eCAP0[ECCTL2]     = 0x0690;\
-                                          eCAP1[ECCTL2]     = 0x0690;\
-                                          TIMER64P3[TGCR]   = 0x00003304;\
-                                          TIMER64P3[TGCR]  |= 0x00000002;\
-                                          TIMER64P3[PRD34]  = 0xFFFFFFFF;\
-                                          TIMER64P3[TCR]    = 0x00800000;\
-                                          \
-                                          /* Setup PWM */\
-                                          SetDutyMA(0);\
-                                          SetDutyMB(0);\
-                                          SetDutyMC(0);\
-                                          SetDutyMD(0);\
-                                          SETPwmFreqKHz(MAX_PWM_CNT-1);\
-                                          FLOATFaultPins;\
-                                          SETSleepPins;\
-                                        }
-
-#define   READIntA                      OutputRead(0,INT)
-#define   READIntB                      OutputRead(1,INT)
-#define   READIntC                      OutputRead(2,INT)
-#define   READIntD                      OutputRead(3,INT)
+static UBYTE AVG_TACHO_COUNTS[NO_OF_OUTPUT_PORTS] = {2,2,2,2};
+static ULONG AVG_COUNTS[NO_OF_OUTPUT_PORTS] = {(2 * COUNTS_PER_PULSE_LM),(2 * COUNTS_PER_PULSE_LM),(2 * COUNTS_PER_PULSE_LM),(2 * COUNTS_PER_PULSE_LM)};
 
 
 /*
- * Functions
- */
-void      CheckSpeedPowerLimits(SBYTE *pCheckVal)
+* Macros
+*/
+#define FLOATFaultPins {\
+if (((pOutputPortPin[Hw])[(0 * OUTPUT_PORT_PINS) + FAULT].Pin) != -1)\
+{\
+(*pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + FAULT].pGpio).dir |= pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + FAULT].Mask;\
+}\
+if (((pOutputPortPin[Hw])[(2 * OUTPUT_PORT_PINS) + FAULT].Pin) != -1)\
+{\
+(*pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + FAULT].pGpio).dir |= pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + FAULT].Mask;\
+}\
+}
+
+#define SETSleepPins {\
+if (((pOutputPortPin[Hw])[(0 * OUTPUT_PORT_PINS) + SLEEP].Pin) != -1)\
+{\
+(*pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + SLEEP].pGpio).set_data = pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + SLEEP].Mask;\
+(*pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + SLEEP].pGpio).dir &= ~pOutputPortPin[Hw][(0 * OUTPUT_PORT_PINS) + SLEEP].Mask;\
+}\
+if (((pOutputPortPin[Hw])[(2 * OUTPUT_PORT_PINS) + SLEEP].Pin) != -1)\
+{\
+(*pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + SLEEP].pGpio).set_data = pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + SLEEP].Mask;\
+(*pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + SLEEP].pGpio).dir &= ~pOutputPortPin[Hw][(2 * OUTPUT_PORT_PINS) + SLEEP].Mask;\
+}\
+}
+
+#define SETMotorType(Port, NewType) {\
+Motor[Port].Type = NewType;\
+if (TYPE_MINITACHO == NewType)\
+{\
+CountsPerPulse[Port] = COUNTS_PER_PULSE_MM;\
+SamplesPerSpeed[Port] = SamplesMediumMotor;\
+}\
+else\
+{\
+CountsPerPulse[Port] = COUNTS_PER_PULSE_LM;\
+SamplesPerSpeed[Port] = SamplesLargeMotor;\
+}\
+}
+
+#define SETAvgTachoCount(Port, Speed) {\
+if (Speed > 80)\
+{\
+AVG_TACHO_COUNTS[Port] = SamplesPerSpeed[Port][3];\
+AVG_COUNTS[Port] = SamplesPerSpeed[Port][3] * CountsPerPulse[Port];\
+}\
+else\
+{\
+if (Speed > 60)\
+{\
+AVG_TACHO_COUNTS[Port] = SamplesPerSpeed[Port][2];\
+AVG_COUNTS[Port] = SamplesPerSpeed[Port][2] * CountsPerPulse[Port];\
+}\
+else\
+{\
+if (Speed > 40)\
+{\
+AVG_TACHO_COUNTS[Port] = SamplesPerSpeed[Port][1];\
+AVG_COUNTS[Port] = SamplesPerSpeed[Port][1] * CountsPerPulse[Port];\
+}\
+else\
+{\
+AVG_TACHO_COUNTS[Port] = SamplesPerSpeed[Port][0];\
+AVG_COUNTS[Port] = SamplesPerSpeed[Port][0] * CountsPerPulse[Port];\
+}\
+}\
+}\
+}
+
+#define FREERunning24bittimer ((ULONG)((((ULONG*)(TIMER64P3))[TIM34])>>8))
+
+#define CLEARTachoArray(No) {\
+Motor[No].DirChgPtr = 0;\
+memset(&TachoSamples[No], 0, sizeof(TACHOSAMPLES));\
+}
+
+#define OutputFloat(port,pin) {\
+(*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).dir |= pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask;\
+}
+
+#define OutputRead(port,pin) ((*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).in_data & pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask)
+
+#define OutputHigh(port,pin) {\
+(*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).set_data = pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask;\
+(*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).dir &= ~pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].Mask;\
+}
+
+#define OutputLow(port,pin) {\
+(*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).clr_data = pOutputPortPin[Hw][(OUTPUT_PORT_PINS * port) + pin].Mask;\
+(*pOutputPortPin[Hw][(port * OUTPUT_PORT_PINS) + pin].pGpio).dir &= ~pOutputPortPin[Hw][(OUTPUT_PORT_PINS * port) + pin].Mask;\
+}
+
+
+#define EHRPWMClkDis {\
+eHRPWM1[TBCTL] = (TB_UP | TB_DISABLE | TB_SHADOW | TB_SYNC_DISABLE | TB_HDIV1 | TB_DIV1 | TB_COUNT_FREEZE);\
+}
+
+#define EHRPWMClkEna {\
+eHRPWM1[TBCTL] = (TB_UP | TB_DISABLE | TB_SHADOW | TB_SYNC_DISABLE | TB_HDIV1 | TB_DIV1 | TB_COUNT_UP);\
+REGUnlock;\
+iowrite32((ioread32(&SYSCFG0[CFGCHIP1]) | TBCLKSYNC),&SYSCFG0[CFGCHIP1]); /*This is the clock to all eHRPWM's*/\
+REGLock;\
+}
+
+#define STOPPwm {\
+iowrite16(0x00, &eCAP0[0x15]);\
+iowrite16(0x00, &eCAP1[0x15]);\
+TIMER64P3[TGCR] = 0x00000000;\
+iowrite16(0x00, &eHRPWM1[TBCTL]);\
+iowrite16(0x00, &eHRPWM1[CMPCTL]);\
+EHRPWMClkDis;\
+}
+
+#define SETPwmFreqKHz(KHz) {\
+eHRPWM1[TBPRD] = KHz; /* For Motor A and Motor B */\
+eCAP0[CAP1] = KHz; /* For Motor C */\
+eCAP1[CAP1] = KHz; /* For Motor D */\
+}
+
+#define SETUPPwmModules { \
+\
+/* eHRPWM Module */\
+EHRPWMClkDis;\
+eHRPWM1[TBPHS] = 0;\
+eHRPWM1[TBCNT] = 0;\
+eHRPWM1[CMPCTL] = (CC_A_SHADOW | CC_B_SHADOW | CC_CTR_A_ZERO | CC_CTR_B_ZERO);\
+eHRPWM1[AQCTLA] = 0x00000021;\
+eHRPWM1[AQCTLB] = 0x00000201;\
+EHRPWMClkEna;\
+\
+/* eCAP modules - APWM */\
+(eCAP0)[TSCTR] = 0;\
+(eCAP1)[TSCTR] = 0;\
+(eCAP0)[CTRPHS] = 0;\
+(eCAP1)[CTRPHS] = 0;\
+eCAP0[ECCTL2] = 0x0690;\
+eCAP1[ECCTL2] = 0x0690;\
+TIMER64P3[TGCR] = 0x00003304;\
+TIMER64P3[TGCR] |= 0x00000002;\
+TIMER64P3[PRD34] = 0xFFFFFFFF;\
+TIMER64P3[TCR] = 0x00800000;\
+\
+/* Setup PWM */\
+SetDutyMA(0);\
+SetDutyMB(0);\
+SetDutyMC(0);\
+SetDutyMD(0);\
+SETPwmFreqKHz(MAX_PWM_CNT-1);\
+FLOATFaultPins;\
+SETSleepPins;\
+}
+
+#define READIntA OutputRead(0,INT)
+#define READIntB OutputRead(1,INT)
+#define READIntC OutputRead(2,INT)
+#define READIntD OutputRead(3,INT)
+
+
+/*
+* Functions
+*/
+void CheckSpeedPowerLimits(SBYTE *pCheckVal)
 {
   if (MAX_SPEED < *pCheckVal)
   {
@@ -722,9 +750,9 @@ void      CheckSpeedPowerLimits(SBYTE *pCheckVal)
 }
 
 
-UBYTE     CheckLessThanSpecial(SLONG Param1, SLONG Param2, SLONG Inv)
+UBYTE CheckLessThanSpecial(SLONG Param1, SLONG Param2, SLONG Inv)
 {
-  UBYTE   RtnVal = FALSE;
+  UBYTE RtnVal = FALSE;
 
   if ((Param1 * Inv) < (Param2 * Inv))
   {
@@ -734,7 +762,7 @@ UBYTE     CheckLessThanSpecial(SLONG Param1, SLONG Param2, SLONG Inv)
 }
 
 
-void      IncSpeed(SBYTE Dir, SBYTE *pSpeed)
+void IncSpeed(SBYTE Dir, SBYTE *pSpeed)
 {
   if ((NON_INV == Dir) && (MAX_SPEED > *pSpeed))
   {
@@ -750,7 +778,7 @@ void      IncSpeed(SBYTE Dir, SBYTE *pSpeed)
 }
 
 
-void      DecSpeed(SBYTE Dir, SBYTE *pSpeed)
+void DecSpeed(SBYTE Dir, SBYTE *pSpeed)
 {
   if ((NON_INV == Dir) && (0 < *pSpeed))
   {
@@ -766,53 +794,54 @@ void      DecSpeed(SBYTE Dir, SBYTE *pSpeed)
 }
 
 
-void      SetDirRwd(UBYTE Port)
+void SetDirRwd(UBYTE Port)
 {
   OutputFloat(Port,DIR0);
   OutputHigh(Port,DIR1);
 }
 
-void      SetDirFwd(UBYTE Port)
+void SetDirFwd(UBYTE Port)
 {
   OutputHigh(Port,DIR0);
   OutputFloat(Port,DIR1);
 }
 
-void      SetBrake(UBYTE Port)
+void SetBrake(UBYTE Port)
 {
   OutputHigh(Port,DIR0);
   OutputHigh(Port,DIR1);
 }
 
-void      SetCoast(UBYTE Port)
+void SetCoast(UBYTE Port)
 {
   OutputLow(Port,DIR0);
   OutputLow(Port,DIR1);
 }
 
 
-UWORD     GetTachoDir(UBYTE Port)
+UWORD GetTachoDir(UBYTE Port)
 {
   return(OutputRead(Port,DIR));
 }
 
 
-UWORD     GetTachoInt(UBYTE Port)
+UWORD GetTachoInt(UBYTE Port)
 {
   return(OutputRead(Port,INT));
 }
 
 
-void      SetPower(UBYTE Port, SLONG Power)
+void SetPower(UBYTE Port, SLONG Power)
 {
+  if(!Power) SetDuty[Port](0);
   if (MAX_PWM_CNT < Power)
   {
-    Power             = MAX_PWM_CNT;
+    Power = MAX_PWM_CNT;
     Motor[Port].Power = Power;
   }
   if (-MAX_PWM_CNT > Power)
   {
-    Power             = -MAX_PWM_CNT;
+    Power = -MAX_PWM_CNT;
     Motor[Port].Power = Power;
   }
 
@@ -854,16 +883,16 @@ void      SetPower(UBYTE Port, SLONG Power)
 }
 
 
-void      SetRegulationPower(UBYTE Port, SLONG Power)
+void SetRegulationPower(UBYTE Port, SLONG Power)
 {
   if (MAX_PWM_CNT < Power)
   {
-    Power             = MAX_PWM_CNT;
+    Power = MAX_PWM_CNT;
     Motor[Port].Power = Power;
   }
   if (-MAX_PWM_CNT > Power)
   {
-    Power             = -MAX_PWM_CNT;
+    Power = -MAX_PWM_CNT;
     Motor[Port].Power = Power;
   }
 
@@ -905,53 +934,53 @@ void      SetRegulationPower(UBYTE Port, SLONG Power)
 }
 
 
-void      SetDutyMA(ULONG Duty)
+void SetDutyMA(ULONG Duty)
 {
   eHRPWM1[CMPA] = (UWORD)Duty;
 }
-void      SetDutyMB(ULONG Duty)
+void SetDutyMB(ULONG Duty)
 {
   eHRPWM1[CMPB] = (UWORD)Duty;
 }
-void      SetDutyMC(ULONG Duty)
+void SetDutyMC(ULONG Duty)
 {
-  eCAP1[CAP2]   = Duty;
+  eCAP1[CAP2] = Duty;
 }
-void      SetDutyMD(ULONG Duty)
+void SetDutyMD(ULONG Duty)
 {
-  eCAP0[CAP2]   = Duty;
+  eCAP0[CAP2] = Duty;
 }
 
 
-void      ClearPIDParameters(UBYTE No)
+void ClearPIDParameters(UBYTE No)
 {
-  Motor[No].PVal        = 0;
-  Motor[No].IVal        = 0;
-  Motor[No].DVal        = 0;
+  Motor[No].PVal = 0;
+  Motor[No].IVal = 0;
+  Motor[No].DVal = 0;
   Motor[No].OldSpeedErr = 0;
 }
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    StepPowerStopMotor
- *
- *  Helper function
- *  Checks how the motor should stop
- *
- *  Parameters:
- *  No: The motor number
- *  AdjustTachoValue: The value that the tacho should be decremented
- *
- */
-void    StepPowerStopMotor(UBYTE No, SLONG AdjustTachoValue)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief StepPowerStopMotor
+*
+* Helper function
+* Checks how the motor should stop
+*
+* Parameters:
+* No: The motor number
+* AdjustTachoValue: The value that the tacho should be decremented
+*
+*/
+void StepPowerStopMotor(UBYTE No, SLONG AdjustTachoValue)
 {
   *StepPowerSteps[No] -= AdjustTachoValue;
-  SetPower(No, 0);                // Don't destroy power level if next command needs to use it
+  SetPower(No, 0); // Don't destroy power level if next command needs to use it
   if (Motor[No].TargetBrake)
   {
     if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
@@ -959,14 +988,14 @@ void    StepPowerStopMotor(UBYTE No, SLONG AdjustTachoValue)
       // To be able to brake at tacho = 0 if this was timed command
       Motor[No].TachoCnt = 0;
     }
-    Motor[No].State  = BRAKED;
+    Motor[No].State = BRAKED;
   }
   else
   {
-    Motor[No].State  = IDLE;
+    Motor[No].State = IDLE;
     SetCoast(No);
   }
-  Motor[No].TargetState = UNLIMITED_UNREG;  // Default motor startup
+  Motor[No].TargetState = UNLIMITED_UNREG; // Default motor startup
 
   // If this was a synced motor then clear it
   if (SyncMNos[0] == No)
@@ -977,30 +1006,30 @@ void    StepPowerStopMotor(UBYTE No, SLONG AdjustTachoValue)
   {
     SyncMNos[1] = UNUSED_SYNC_MOTOR;
   }
-  ReadyStatus &= ~(0x01 << No);             // Clear ready flag
-  TestStatus  &= ~(0x01 << No);             // Clear ready flag
+  ReadyStatus &= ~(0x01 << No); // Clear ready flag
+  TestStatus &= ~(0x01 << No); // Clear ready flag
 }
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    StepSpeedCheckTachoCntUp
- *
- *  Helper function
- *  Checks if step power should have a Count up sequence
- *
- *  Parameters:
- *  No: The motor number
- *
- */
-UBYTE    StepSpeedCheckTachoCntUp(UBYTE No)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief StepSpeedCheckTachoCntUp
+*
+* Helper function
+* Checks if step power should have a Count up sequence
+*
+* Parameters:
+* No: The motor number
+*
+*/
+UBYTE StepSpeedCheckTachoCntUp(UBYTE No)
 {
-  UBYTE  Return;
-  SLONG  CorrPower;
+  UBYTE Return;
+  SLONG CorrPower;
 
   Return = FALSE;
   if (Motor[No].TachoCntUp)
@@ -1040,29 +1069,29 @@ UBYTE    StepSpeedCheckTachoCntUp(UBYTE No)
       Motor[No].BrakeAfter = FALSE;
     }
     Motor[No].LockRampDown = FALSE;
-    Return                 = TRUE;
+    Return = TRUE;
   }
   return(Return);
 }
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    StepPowerCheckTachoCntConst
- *
- *  Helper function
- *  Checks if step power should have a constant power sequence
- *
- *  Parameters:
- *  No: The motor number
- *  AdjustTachoValue: The value that the tacho should be decremented
- *
- */
-UBYTE   StepSpeedCheckTachoCntConst(UBYTE No, SLONG AdjustTachoValue)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief StepPowerCheckTachoCntConst
+*
+* Helper function
+* Checks if step power should have a constant power sequence
+*
+* Parameters:
+* No: The motor number
+* AdjustTachoValue: The value that the tacho should be decremented
+*
+*/
+UBYTE StepSpeedCheckTachoCntConst(UBYTE No, SLONG AdjustTachoValue)
 {
   UBYTE ReturnState;
 
@@ -1070,9 +1099,9 @@ UBYTE   StepSpeedCheckTachoCntConst(UBYTE No, SLONG AdjustTachoValue)
 
   if (Motor[No].TachoCntConst)
   {
-    *StepPowerSteps[No]  -= AdjustTachoValue;
+    *StepPowerSteps[No] -= AdjustTachoValue;
     Motor[No].TargetSpeed = Motor[No].TargetPower; //(Motor[No].TargetPower / SPEED_PWMCNT_REL);
-    Motor[No].State       = LIMITED_REG_STEPCONST;
+    Motor[No].State = LIMITED_REG_STEPCONST;
     ClearPIDParameters(No);
 
     if((0 == Motor[No].TachoCntDown) && (1 == Motor[No].TargetBrake))
@@ -1084,37 +1113,37 @@ UBYTE   StepSpeedCheckTachoCntConst(UBYTE No, SLONG AdjustTachoValue)
       Motor[No].BrakeAfter = FALSE;
     }
     Motor[No].LockRampDown = FALSE;
-    ReturnState            =  TRUE;
+    ReturnState = TRUE;
   }
   return(ReturnState);
 }
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    StepSpeedCheckTachoCntDown
- *
- *  Helper function
- *  Checks if step power should ramp down or stop
- *
- *  Parameters:
- *  No: The motor number
- *  AdjustTachoValue: The value that the tacho should be decremented
- *
- */
-void    StepSpeedCheckTachoCntDown(UBYTE No, SLONG AdjustTachoValue)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief StepSpeedCheckTachoCntDown
+*
+* Helper function
+* Checks if step power should ramp down or stop
+*
+* Parameters:
+* No: The motor number
+* AdjustTachoValue: The value that the tacho should be decremented
+*
+*/
+void StepSpeedCheckTachoCntDown(UBYTE No, SLONG AdjustTachoValue)
 {
   if (Motor[No].TachoCntDown)
   {
     Motor[No].RampDownFactor = ((Motor[No].TargetPower * RAMP_FACTOR) + (Motor[No].TachoCntDown/2))/Motor[No].TachoCntDown;
 
-    *StepPowerSteps[No]     -= AdjustTachoValue;
-    Motor[No].State          = LIMITED_REG_STEPDOWN;
-    MinRegEnabled[No]        = FALSE;
+    *StepPowerSteps[No] -= AdjustTachoValue;
+    Motor[No].State = LIMITED_REG_STEPDOWN;
+    MinRegEnabled[No] = FALSE;
     ClearPIDParameters(No);
   }
   else
@@ -1125,21 +1154,21 @@ void    StepSpeedCheckTachoCntDown(UBYTE No, SLONG AdjustTachoValue)
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    StepPowerCheckTachoCntUp
- *
- *  Helper function
- *  Checks if step power should have a Count up sequence
- *
- *  Parameters:
- *  No: The motor number
- *
- */
-UBYTE    StepPowerCheckTachoCntUp(UBYTE No)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief StepPowerCheckTachoCntUp
+*
+* Helper function
+* Checks if step power should have a Count up sequence
+*
+* Parameters:
+* No: The motor number
+*
+*/
+UBYTE StepPowerCheckTachoCntUp(UBYTE No)
 {
   UBYTE Return;
 
@@ -1148,7 +1177,7 @@ UBYTE    StepPowerCheckTachoCntUp(UBYTE No)
   if (Motor[No].TachoCntUp)
   { // RampUp enabled
 
-    Motor[No].State        = LIMITED_UNREG_STEPUP;
+    Motor[No].State = LIMITED_UNREG_STEPUP;
     Motor[No].RampUpFactor = ((Motor[No].TargetPower * RAMP_FACTOR) + (Motor[No].TachoCntUp/2))/Motor[No].TachoCntUp;
     ClearPIDParameters(No);
 
@@ -1161,29 +1190,29 @@ UBYTE    StepPowerCheckTachoCntUp(UBYTE No)
       Motor[No].BrakeAfter = FALSE;
     }
     Motor[No].LockRampDown = FALSE;
-    Return                 = TRUE;
+    Return = TRUE;
   }
   return(Return);
 }
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    StepPowerCheckTachoCntConst
- *
- *  Helper function
- *  Checks if step power should have a constant power sequense
- *
- *  Parameters:
- *  No: The motor number
- *  AdjustTachoValue: The value that the tacho should be decremented
- *
- */
-UBYTE   StepPowerCheckTachoCntConst(UBYTE No, SLONG AdjustTachoValue)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief StepPowerCheckTachoCntConst
+*
+* Helper function
+* Checks if step power should have a constant power sequense
+*
+* Parameters:
+* No: The motor number
+* AdjustTachoValue: The value that the tacho should be decremented
+*
+*/
+UBYTE StepPowerCheckTachoCntConst(UBYTE No, SLONG AdjustTachoValue)
 {
   UBYTE ReturnState;
 
@@ -1192,8 +1221,8 @@ UBYTE   StepPowerCheckTachoCntConst(UBYTE No, SLONG AdjustTachoValue)
   if (Motor[No].TachoCntConst)
   {
    *StepPowerSteps[No] -= AdjustTachoValue;
-   Motor[No].Power      = Motor[No].TargetPower;
-   Motor[No].State      = LIMITED_UNREG_STEPCONST;
+   Motor[No].Power = Motor[No].TargetPower;
+   Motor[No].State = LIMITED_UNREG_STEPCONST;
    SetPower(No,Motor[No].Power);
    ClearPIDParameters(No);
 
@@ -1206,37 +1235,37 @@ UBYTE   StepPowerCheckTachoCntConst(UBYTE No, SLONG AdjustTachoValue)
      Motor[No].BrakeAfter = FALSE;
    }
    Motor[No].LockRampDown = FALSE;
-   ReturnState            = TRUE;
+   ReturnState = TRUE;
   }
   return(ReturnState);
 }
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    StepPowerCheckTachoCntDown
- *
- *  Helper function
- *  Checks if step power should ramp down or stop
- *
- *  Parameters:
- *  No: The motor number
- *  AdjustTachoValue: The value that the tacho should be decremented
- *
- */
-void    StepPowerCheckTachoCntDown(UBYTE No, SLONG AdjustTachoValue)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief StepPowerCheckTachoCntDown
+*
+* Helper function
+* Checks if step power should ramp down or stop
+*
+* Parameters:
+* No: The motor number
+* AdjustTachoValue: The value that the tacho should be decremented
+*
+*/
+void StepPowerCheckTachoCntDown(UBYTE No, SLONG AdjustTachoValue)
 {
   if (Motor[No].TachoCntDown)
   {
 
-    Motor[No].RampDownFactor  = ((Motor[No].TargetPower * RAMP_FACTOR) + (Motor[No].TachoCntDown/2))/Motor[No].TachoCntDown;
-    *StepPowerSteps[No]      -= AdjustTachoValue;
-    Motor[No].State           = LIMITED_UNREG_STEPDOWN;
-    MinRegEnabled[No]         = FALSE;
+    Motor[No].RampDownFactor = ((Motor[No].TargetPower * RAMP_FACTOR) + (Motor[No].TachoCntDown/2))/Motor[No].TachoCntDown;
+    *StepPowerSteps[No] -= AdjustTachoValue;
+    Motor[No].State = LIMITED_UNREG_STEPDOWN;
+    MinRegEnabled[No] = FALSE;
     ClearPIDParameters(No);
   }
   else
@@ -1247,41 +1276,41 @@ void    StepPowerCheckTachoCntDown(UBYTE No, SLONG AdjustTachoValue)
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- *
- */
-/*! \brief    dRegulateSpeed
- *
- *  - Calculates the new motor power value (duty cycle)
- *
- *  - Regulation method:
- *    To be defined
- *
- *  - Parameters:
- *    - Input:
- *      - No:       Motor output number
- *
- *    -Output:
- *      - None
- */
-void      dRegulateSpeed(UBYTE No)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*
+*/
+/*! \brief dRegulateSpeed
+*
+* - Calculates the new motor power value (duty cycle)
+*
+* - Regulation method:
+* To be defined
+*
+* - Parameters:
+* - Input:
+* - No: Motor output number
+*
+* -Output:
+* - None
+*/
+void dRegulateSpeed(UBYTE No)
 {
 
-  SLONG   SpeedErr;
+  SLONG SpeedErr;
 
   if (TYPE_MINITACHO == Motor[No].Type)
   {
-    SpeedErr       = ((SLONG)(Motor[No].TargetSpeed) - (SLONG)(Motor[No].Speed));
-    Motor[No].PVal = SpeedErr * 4; 
+    SpeedErr = ((SLONG)(Motor[No].TargetSpeed) - (SLONG)(Motor[No].Speed));
+    Motor[No].PVal = SpeedErr * 4;
     Motor[No].IVal = ((Motor[No].IVal * 9)/10) + (SpeedErr / 3);
     Motor[No].DVal = (((SpeedErr - (Motor[No].OldSpeedErr)) * 4)/2) * 40;
   }
   else
   {
-    SpeedErr       = ((SLONG)(Motor[No].TargetSpeed) - (SLONG)(Motor[No].Speed));
+    SpeedErr = ((SLONG)(Motor[No].TargetSpeed) - (SLONG)(Motor[No].Speed));
     Motor[No].PVal = SpeedErr * 2;
     Motor[No].IVal = ((Motor[No].IVal * 9)/10) + (SpeedErr / 4);
     Motor[No].DVal = (((SpeedErr - (Motor[No].OldSpeedErr)) * 4)/2) * 40;
@@ -1315,7 +1344,7 @@ void      dRegulateSpeed(UBYTE No)
 }
 
 
-void      BrakeMotor(UBYTE No, SLONG TachoCnt)
+void BrakeMotor(UBYTE No, SLONG TachoCnt)
 {
   SLONG TmpTacho;
 
@@ -1337,16 +1366,16 @@ void      BrakeMotor(UBYTE No, SLONG TachoCnt)
 }
 
 
-UBYTE      RampDownToBrake(UBYTE No, SLONG CurrentCnt, SLONG TargetCnt, SLONG Dir)
+UBYTE RampDownToBrake(UBYTE No, SLONG CurrentCnt, SLONG TargetCnt, SLONG Dir)
 {
-  UBYTE    Status;
+  UBYTE Status;
 
   Status = FALSE;
 
   if (TRUE == CheckLessThanSpecial(CurrentCnt, TargetCnt, Dir))
   {
 
-//    Motor[No].TargetSpeed = (SBYTE)((Motor[No].TachoCntConst - CurrentCnt));
+// Motor[No].TargetSpeed = (SBYTE)((Motor[No].TachoCntConst - CurrentCnt));
     Motor[No].TargetSpeed = (SBYTE)(TargetCnt - CurrentCnt);
 
     if ((Motor[No].TargetSpeed > 5) || (Motor[No].TargetSpeed < -5))
@@ -1368,7 +1397,7 @@ UBYTE      RampDownToBrake(UBYTE No, SLONG CurrentCnt, SLONG TargetCnt, SLONG Di
 }
 
 
-void      CalcRampDownFactor(UBYTE No, ULONG CurrentPower, ULONG Counts)
+void CalcRampDownFactor(UBYTE No, ULONG CurrentPower, ULONG Counts)
 {
 
   if (Counts != 0)
@@ -1378,7 +1407,7 @@ void      CalcRampDownFactor(UBYTE No, ULONG CurrentPower, ULONG Counts)
 }
 
 
-void      GetCompareCounts(UBYTE No, SLONG *Counts, SLONG *CompareCounts)
+void GetCompareCounts(UBYTE No, SLONG *Counts, SLONG *CompareCounts)
 {
   *Counts = *StepPowerSteps[No];
 
@@ -1409,61 +1438,61 @@ void      GetCompareCounts(UBYTE No, SLONG *Counts, SLONG *CompareCounts)
 }
 
 
-void      StopAndBrakeMotor(UBYTE MotorNo)
+void StopAndBrakeMotor(UBYTE MotorNo)
 {
-  ReadyStatus             &=  ~(0x01 << MotorNo);
-  TestStatus              &=  ~(0x01 << MotorNo);
-  Motor[MotorNo].Power     =  0;
-  Motor[MotorNo].Speed     =  0;
-  Motor[MotorNo].TachoCnt  =  0;
-  Motor[MotorNo].State     =  BRAKED;
+  ReadyStatus &= ~(0x01 << MotorNo);
+  TestStatus &= ~(0x01 << MotorNo);
+  Motor[MotorNo].Power = 0;
+  Motor[MotorNo].Speed = 0;
+  Motor[MotorNo].TachoCnt = 0;
+  Motor[MotorNo].State = BRAKED;
   CLEARTachoArray(MotorNo);
   SetPower(MotorNo, Motor[MotorNo].Power);
   SetBrake(MotorNo);
 }
 
 
-void      StopAndFloatMotor(UBYTE MotorNo)
+void StopAndFloatMotor(UBYTE MotorNo)
 {
-  ReadyStatus             &=  ~(0x01 << MotorNo);
-  TestStatus              &=  ~(0x01 << MotorNo);
-  Motor[MotorNo].Power     =  0;
-  Motor[MotorNo].Speed     =  0;
-  Motor[MotorNo].TachoCnt  =  0;
-  Motor[MotorNo].State     =  IDLE;
+  ReadyStatus &= ~(0x01 << MotorNo);
+  TestStatus &= ~(0x01 << MotorNo);
+  Motor[MotorNo].Power = 0;
+  Motor[MotorNo].Speed = 0;
+  Motor[MotorNo].TachoCnt = 0;
+  Motor[MotorNo].State = IDLE;
   CLEARTachoArray(MotorNo);
   SetPower(MotorNo, Motor[MotorNo].Power);
   SetCoast(MotorNo);
 }
 
 
-void     FloatSyncedMotors(void)
+void FloatSyncedMotors(void)
 {
-  UBYTE   TmpNo0, TmpNo1;
+  UBYTE TmpNo0, TmpNo1;
 
   TmpNo0 = SyncMNos[0];
   TmpNo1 = SyncMNos[1];
 
-  Motor[TmpNo0].Mutex  =  TRUE;
-  Motor[TmpNo1].Mutex  =  TRUE;
+  Motor[TmpNo0].Mutex = TRUE;
+  Motor[TmpNo1].Mutex = TRUE;
 
   StopAndFloatMotor(TmpNo0);
   StopAndFloatMotor(TmpNo1);
   SyncMNos[0] = UNUSED_SYNC_MOTOR;
   SyncMNos[1] = UNUSED_SYNC_MOTOR;
 
-  MaxSyncSpeed              = 0;
+  MaxSyncSpeed = 0;
   Motor[TmpNo0].TargetSpeed = 0;
   Motor[TmpNo1].TargetSpeed = 0;
 
-  Motor[TmpNo0].Mutex  =  FALSE;
-  Motor[TmpNo1].Mutex  =  FALSE;
+  Motor[TmpNo0].Mutex = FALSE;
+  Motor[TmpNo1].Mutex = FALSE;
 }
 
 
-void      TestAndFloatSyncedMotors(UBYTE MotorBitField, UBYTE SyncCmd)
+void TestAndFloatSyncedMotors(UBYTE MotorBitField, UBYTE SyncCmd)
 {
-//  UBYTE   TmpNo0, TmpNo1;
+// UBYTE TmpNo0, TmpNo1;
 
   // Only if motors are already sync'ed
   if ((SyncMNos[0] != UNUSED_SYNC_MOTOR) && (SyncMNos[1] != UNUSED_SYNC_MOTOR))
@@ -1494,49 +1523,49 @@ void      TestAndFloatSyncedMotors(UBYTE MotorBitField, UBYTE SyncCmd)
 
 /*
 
-    // Check if new sync'ed motor command uses same motors as previous sync cmd
-    if ((MotorBitField & (0x01 << SyncMNos[0])) && (MotorBitField & (0x01 << SyncMNos[1])))
-    {
-      // Check if only one of the sync'ed motors are affected by the new motor cmd
-      if (((MotorBitField & (0x01 << SyncMNos[0])) || (MotorBitField & (0x01 << SyncMNos[1]))) || (TRUE == SyncCmd))
-      {
-        // The motor is in sync'ed mode -> float both sync'ed motors
-        TmpNo0 = SyncMNos[0];
-        TmpNo1 = SyncMNos[1];
+// Check if new sync'ed motor command uses same motors as previous sync cmd
+if ((MotorBitField & (0x01 << SyncMNos[0])) && (MotorBitField & (0x01 << SyncMNos[1])))
+{
+// Check if only one of the sync'ed motors are affected by the new motor cmd
+if (((MotorBitField & (0x01 << SyncMNos[0])) || (MotorBitField & (0x01 << SyncMNos[1]))) || (TRUE == SyncCmd))
+{
+// The motor is in sync'ed mode -> float both sync'ed motors
+TmpNo0 = SyncMNos[0];
+TmpNo1 = SyncMNos[1];
 
-        Motor[TmpNo0].Mutex  =  TRUE;
-        Motor[TmpNo1].Mutex  =  TRUE;
+Motor[TmpNo0].Mutex = TRUE;
+Motor[TmpNo1].Mutex = TRUE;
 
-        StopAndFloatMotor(TmpNo0);
-        StopAndFloatMotor(TmpNo1);
-        SyncMNos[0] = UNUSED_SYNC_MOTOR;
-        SyncMNos[1] = UNUSED_SYNC_MOTOR;
+StopAndFloatMotor(TmpNo0);
+StopAndFloatMotor(TmpNo1);
+SyncMNos[0] = UNUSED_SYNC_MOTOR;
+SyncMNos[1] = UNUSED_SYNC_MOTOR;
 
-        MaxSyncSpeed              = 0;
-        Motor[TmpNo0].TargetSpeed = 0;
-        Motor[TmpNo1].TargetSpeed = 0;
+MaxSyncSpeed = 0;
+Motor[TmpNo0].TargetSpeed = 0;
+Motor[TmpNo1].TargetSpeed = 0;
 
-        Motor[TmpNo0].Mutex  =  FALSE;
-        Motor[TmpNo1].Mutex  =  FALSE;
-      }
-    }*/
+Motor[TmpNo0].Mutex = FALSE;
+Motor[TmpNo1].Mutex = FALSE;
+}
+}*/
   }
 }
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    Device1TimerInterrupt1
- *
- *  Motor timer interrupt function
- *
- *  Handles all motor regulation and timing related functionality
- *
- */
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief Device1TimerInterrupt1
+*
+* Motor timer interrupt function
+*
+* Handles all motor regulation and timing related functionality
+*
+*/
 static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
 {
   UBYTE No;
@@ -1549,18 +1578,18 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
   for (No = 0; No < NO_OF_OUTPUT_PORTS; No++)
   {
     TmpTacho = Motor[No].IrqTacho;
-    Tmp      = (TmpTacho - Motor[No].OldTachoCnt);
+    Tmp = (TmpTacho - Motor[No].OldTachoCnt);
 
-    Motor[No].TachoCnt      +=  Tmp;
-    Motor[No].TachoSensor   +=  Tmp;
-    Motor[No].OldTachoCnt    =  TmpTacho;
+    Motor[No].TachoCnt += Tmp;
+    Motor[No].TachoSensor += Tmp;
+    Motor[No].OldTachoCnt = TmpTacho;
 
     /* Update shared memory */
-    pMotor[No].TachoCounts   =  Motor[No].TachoCnt;
-    pMotor[No].Speed         =  Motor[No].Speed;
-    pMotor[No].TachoSensor   =  Motor[No].TachoSensor;
+    pMotor[No].TachoCounts = Motor[No].TachoCnt;
+    pMotor[No].Speed = Motor[No].Speed;
+    pMotor[No].TachoSensor = Motor[No].TachoSensor;
 
-    Motor[No].TimeCnt       +=  Motor[No].TimeInc;  // Add or sub so that TimerCnt is 1 mS resolution
+    Motor[No].TimeCnt += Motor[No].TimeInc; // Add or sub so that TimerCnt is 1 mS resolution
 
     if (FALSE == Motor[No].Mutex)
     {
@@ -1572,11 +1601,11 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
         {
           if (Motor[No].TargetPower != Motor[No].Power)
           {
-            Motor[No].Power  = Motor[No].TargetPower;
+            Motor[No].Power = Motor[No].TargetPower;
             SetPower(No,Motor[No].Power);
           }
-          Motor[No].TachoCnt  =  0;
-          Motor[No].TimeCnt   =  0;
+          Motor[No].TachoCnt = 0;
+          Motor[No].TimeCnt = 0;
 
         }
         break;
@@ -1584,27 +1613,27 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
         case UNLIMITED_REG:
         {
           dRegulateSpeed(No);
-          Motor[No].TachoCnt  =  0;
-          Motor[No].TimeCnt   =  0;
+          Motor[No].TachoCnt = 0;
+          Motor[No].TimeCnt = 0;
         }
         break;
 
         case LIMITED_REG_STEPUP:
         {
-          UBYTE  Status;
-          SLONG  StepCnt;
-          SLONG  StepCntTst;
+          UBYTE Status;
+          SLONG StepCnt;
+          SLONG StepCntTst;
 
           // Status used to check if ramp up has completed
-          Status  = FALSE;
+          Status = FALSE;
 
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
-            Motor[No].TachoCnt =  0;
+            Motor[No].TachoCnt = 0;
           }
           else
           {
-            Motor[No].TimeCnt  =  0;
+            Motor[No].TimeCnt = 0;
           }
 
           GetCompareCounts(No, &StepCnt, &StepCntTst);
@@ -1646,7 +1675,7 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
 
         case LIMITED_REG_STEPCONST:
         {
-          SLONG   StepCnt, StepCntTst;
+          SLONG StepCnt, StepCntTst;
 
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
@@ -1654,7 +1683,7 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
           }
           else
           {
-            Motor[No].TimeCnt  = 0;
+            Motor[No].TimeCnt = 0;
           }
 
           GetCompareCounts(No, &StepCnt, &StepCntTst);
@@ -1683,18 +1712,18 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
 
         case LIMITED_REG_STEPDOWN:
         {
-          SLONG   StepCnt;
-          SBYTE   NewSpeed;
+          SLONG StepCnt;
+          SBYTE NewSpeed;
 
           StepCnt = *StepPowerSteps[No];
 
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
-            Motor[No].TachoCnt  =  0;
+            Motor[No].TachoCnt = 0;
           }
           else
           {
-            Motor[No].TimeCnt =  0;
+            Motor[No].TimeCnt = 0;
           }
 
           if (TRUE == CheckLessThanSpecial(StepCnt, Motor[No].TachoCntDown, Motor[No].Dir))
@@ -1716,20 +1745,20 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
         case LIMITED_UNREG_STEPUP:
         {
 
-          UBYTE  Status;
-          SLONG  StepCnt;
-          SLONG  StepCntTst;
+          UBYTE Status;
+          SLONG StepCnt;
+          SLONG StepCntTst;
 
           // Status used to check if ramp up has completed
-          Status  = FALSE;
+          Status = FALSE;
 
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
-            Motor[No].TachoCnt  =  0;
+            Motor[No].TachoCnt = 0;
           }
           else
           {
-            Motor[No].TimeCnt =  0;
+            Motor[No].TimeCnt = 0;
           }
 
           GetCompareCounts(No, &StepCnt, &StepCntTst);
@@ -1785,15 +1814,15 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
 
         case LIMITED_UNREG_STEPCONST:
         {
-          SLONG   StepCnt, StepCntTst;
+          SLONG StepCnt, StepCntTst;
 
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
-            Motor[No].TachoCnt =  0;
+            Motor[No].TachoCnt = 0;
           }
           else
           {
-            Motor[No].TimeCnt  =  0;
+            Motor[No].TimeCnt = 0;
           }
 
           GetCompareCounts(No, &StepCnt, &StepCntTst);
@@ -1822,17 +1851,17 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
 
         case LIMITED_UNREG_STEPDOWN:
         {
-          SLONG   StepCnt;
+          SLONG StepCnt;
 
           StepCnt = *StepPowerSteps[No];
 
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
-            Motor[No].TachoCnt  =  0;
+            Motor[No].TachoCnt = 0;
           }
           else
           {
-            Motor[No].TimeCnt =  0;
+            Motor[No].TimeCnt = 0;
           }
 
           if (TRUE == CheckLessThanSpecial(StepCnt, Motor[No].TachoCntDown, Motor[No].Dir))
@@ -1848,7 +1877,7 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
             else
             {
 
-              MinRegEnabled[No]     = TRUE;
+              MinRegEnabled[No] = TRUE;
               Motor[No].TargetSpeed = (2 * Motor[No].Dir);
               dRegulateSpeed(No);
             }
@@ -1864,22 +1893,22 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
         {
           // Here motor are syncronized and supposed to drive straight
 
-          UBYTE   Cnt;
-          UBYTE   Status;
-          SLONG   StepCnt;
+          UBYTE Cnt;
+          UBYTE Status;
+          SLONG StepCnt;
 
           StepCnt = *StepPowerSteps[No];
 
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
-            Motor[No].TachoCnt  =  0;
+            Motor[No].TachoCnt = 0;
           }
           else
           {
-            Motor[No].TimeCnt =  0;
+            Motor[No].TimeCnt = 0;
           }
 
-          Status  = FALSE;
+          Status = FALSE;
 
           if ((Motor[SyncMNos[0]].Power > (MAX_PWM_CNT - 100)) || (Motor[SyncMNos[0]].Power < (-MAX_PWM_CNT + 100)))
           {
@@ -1952,31 +1981,31 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
         {
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
-            Motor[No].TachoCnt  =  0;
+            Motor[No].TachoCnt = 0;
           }
           else
           {
-            Motor[No].TimeCnt =  0;
+            Motor[No].TimeCnt = 0;
           }
         }
         break;
         case LIMITED_DIFF_TURN_SYNC:
         {
-          UBYTE   Status;
-          SLONG   StepCnt;
+          UBYTE Status;
+          SLONG StepCnt;
 
           StepCnt = *StepPowerSteps[No];
 
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
-            Motor[No].TachoCnt  =  0;
+            Motor[No].TachoCnt = 0;
           }
           else
           {
-            Motor[No].TimeCnt =  0;
+            Motor[No].TimeCnt = 0;
           }
 
-          Status  = FALSE;
+          Status = FALSE;
 
           if ((Motor[SyncMNos[0]].Power > (MAX_PWM_CNT - 100)) || (Motor[SyncMNos[0]].Power < (-MAX_PWM_CNT + 100)))
           {
@@ -2068,7 +2097,7 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
         case RAMP_DOWN_SYNC:
         {
 
-          SLONG   Count0, Count1;
+          SLONG Count0, Count1;
 
           if (StepPowerSteps[No] != &(Motor[No].TachoCnt))
           {
@@ -2076,7 +2105,7 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
           }
           else
           {
-            Motor[No].TimeCnt  = 0;
+            Motor[No].TimeCnt = 0;
           }
 
           // Duration is either dependent on timer ticks or tacho counts
@@ -2100,9 +2129,9 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
           }
           else
           {
-            MaxSyncSpeed                    = 0;
-            Motor[SyncMNos[0]].TargetSpeed  = 0;
-            Motor[SyncMNos[1]].TargetSpeed  = 0;
+            MaxSyncSpeed = 0;
+            Motor[SyncMNos[0]].TargetSpeed = 0;
+            Motor[SyncMNos[1]].TargetSpeed = 0;
             StepPowerStopMotor(SyncMNos[0], Motor[SyncMNos[0]].TachoCntConst);
             StepPowerStopMotor(SyncMNos[1], Motor[SyncMNos[1]].TachoCntConst);
           }
@@ -2117,8 +2146,8 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
           }
           else
           {
-            Motor[No].State        = IDLE;
-            Motor[No].TargetState  = UNLIMITED_UNREG;
+            Motor[No].State = IDLE;
+            Motor[No].TargetState = UNLIMITED_UNREG;
             SetCoast(No);
           }
         }
@@ -2145,7 +2174,7 @@ static enum hrtimer_restart Device1TimerInterrupt1(struct hrtimer *pTimer)
 }
 
 
-void      GetSyncDurationCnt(SLONG *pCount0, SLONG *pCount1)
+void GetSyncDurationCnt(SLONG *pCount0, SLONG *pCount1)
 {
   if (StepPowerSteps[SyncMNos[0]] == TimerSteps[SyncMNos[0]])
   {
@@ -2160,10 +2189,10 @@ void      GetSyncDurationCnt(SLONG *pCount0, SLONG *pCount1)
 }
 
 
-void      CheckforEndOfSync(void)
+void CheckforEndOfSync(void)
 {
-  SLONG   Count0, Count1;
-  SBYTE   Speed;
+  SLONG Count0, Count1;
+  SBYTE Speed;
 
   // Duration is either dependent on timer ticks or tacho counts
   GetSyncDurationCnt(&Count0, &Count1);
@@ -2183,51 +2212,51 @@ void      CheckforEndOfSync(void)
   }
   else
   {
-    Motor[SyncMNos[0]].State  =  RAMP_DOWN_SYNC;
+    Motor[SyncMNos[0]].State = RAMP_DOWN_SYNC;
   }
 }
 
 
 /*! \page PWMModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- *
- */
-/*! \brief    Device1Write
- *
- *  VALID COMMANDS:
- *
- *  opOUTPUT_SET_TYPE:
- *  opOUTPUT_GET_TYPE
- *  opOUTPUT_SET_TYPE
- *  opOUTPUT_RESET:       Resets the output tacho counters
- *  opOUTPUT_STOP:        Stops the motor - either Braked or coasted
- *  opOUTPUT_POWER:       Sets the power - Duty -                        Do not start the motor
- *  opOUTPUT_SPEED:       Sets the Speed - setpoint for regulation -     Do not start the motor
- *  opOUTPUT_START:       Starts the motor if not started
- *  opOUTPUT_POLARITY:    Sets the polarity of the motor -               Do not start the motor
- *  opOUTPUT_READ:
- *  opOUTPUT_TEST:
- *  opOUTPUT_READY:
- *  opOUTPUT_POSITION:    Runs the motor to the absolute tacho positon - Starts the motor
- *  opOUTPUT_STEP_POWER:  Runs the motor un-regulated with ramp up const and down according to the tacho
- *  opOUTPUT_TIME_POWER:  Runs the motor un-regulated with ramp up const and down according to time
- *  opOUTPUT_STEP_SPEED:  Runs the motor regulated with ramp up const and down according to the tacho
- *  opOUTPUT_TIME_SPEED:  Runs the motor regulated with ramp up const and down according to the time
- *  opOUTPUT_STEP_SYNC:   Runs two motors regulated and syncronized, duration as specified by tacho cnts
- *  opOUTPUT_TIME_SYNC:   Runs two motors regulated and syncronized, duration as specified by time
- *  opOUTPUT_CLR_COUNT:   Resets the tacho count related to when motor is used as a sensor
- *
- *
- *  Default state:        TBD
- */
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*
+*/
+/*! \brief Device1Write
+*
+* VALID COMMANDS:
+*
+* opOUTPUT_SET_TYPE:
+* opOUTPUT_GET_TYPE
+* opOUTPUT_SET_TYPE
+* opOUTPUT_RESET: Resets the output tacho counters
+* opOUTPUT_STOP: Stops the motor - either Braked or coasted
+* opOUTPUT_POWER: Sets the power - Duty - Do not start the motor
+* opOUTPUT_SPEED: Sets the Speed - setpoint for regulation - Do not start the motor
+* opOUTPUT_START: Starts the motor if not started
+* opOUTPUT_POLARITY: Sets the polarity of the motor - Do not start the motor
+* opOUTPUT_READ:
+* opOUTPUT_TEST:
+* opOUTPUT_READY:
+* opOUTPUT_POSITION: Runs the motor to the absolute tacho positon - Starts the motor
+* opOUTPUT_STEP_POWER: Runs the motor un-regulated with ramp up const and down according to the tacho
+* opOUTPUT_TIME_POWER: Runs the motor un-regulated with ramp up const and down according to time
+* opOUTPUT_STEP_SPEED: Runs the motor regulated with ramp up const and down according to the tacho
+* opOUTPUT_TIME_SPEED: Runs the motor regulated with ramp up const and down according to the time
+* opOUTPUT_STEP_SYNC: Runs two motors regulated and syncronized, duration as specified by tacho cnts
+* opOUTPUT_TIME_SYNC: Runs two motors regulated and syncronized, duration as specified by time
+* opOUTPUT_CLR_COUNT: Resets the tacho count related to when motor is used as a sensor
+*
+*
+* Default state: TBD
+*/
 static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,loff_t *Data)
 {
 
-  SBYTE   Buf[20];
-  int     Lng = 0;
+  SBYTE Buf[20];
+  int Lng = 0;
 
   copy_from_user(Buf,Buffer,Count);
 
@@ -2241,26 +2270,26 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
       for (Tmp = 0; Tmp < OUTPUTS; Tmp++)
       {
 
-        Motor[Tmp].Mutex   =  TRUE;
-        ReadyStatus       &=  ~(0x01 << Tmp);   // Clear Ready flag
-        TestStatus        &=  ~(0x01 << Tmp);   // Clear Test flag
+        Motor[Tmp].Mutex = TRUE;
+        ReadyStatus &= ~(0x01 << Tmp); // Clear Ready flag
+        TestStatus &= ~(0x01 << Tmp); // Clear Test flag
 
-        Motor[Tmp].Power       = 0;
-        Motor[Tmp].Speed       = 0;
-        MaxSyncSpeed           = 0;
+        Motor[Tmp].Power = 0;
+        Motor[Tmp].Speed = 0;
+        MaxSyncSpeed = 0;
         Motor[Tmp].TargetSpeed = 0;
 
         if (((IDLE == Motor[Tmp].State) && ((OutputRead(Tmp,DIR0)) && (OutputRead(Tmp,DIR1)))) || (BRAKED == Motor[Tmp].State))
         {
-          PrgStopTimer[Tmp]       = 100/SOFT_TIMER_MS;
-          Motor[Tmp].State        = STOP_MOTOR;
-          Motor[Tmp].TargetState  = UNLIMITED_UNREG;
+          PrgStopTimer[Tmp] = 100/SOFT_TIMER_MS;
+          Motor[Tmp].State = STOP_MOTOR;
+          Motor[Tmp].TargetState = UNLIMITED_UNREG;
           SetBrake(Tmp);
         }
         else
         {
-          Motor[Tmp].State        = IDLE;
-          Motor[Tmp].TargetState  = UNLIMITED_UNREG;
+          Motor[Tmp].State = IDLE;
+          Motor[Tmp].TargetState = UNLIMITED_UNREG;
           SetCoast(Tmp);
         }
         Motor[Tmp].Mutex = FALSE;
@@ -2288,29 +2317,29 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
       {
         if (Buf[Tmp + 1] != Motor[Tmp].Type)
         {
-          Motor[Tmp].Mutex  =  TRUE;
+          Motor[Tmp].Mutex = TRUE;
           if ((TYPE_TACHO == Buf[Tmp + 1]) || (TYPE_MINITACHO == Buf[Tmp + 1]))
           {
             // There is a motor attached the port
             CLEARTachoArray(Tmp);
-            SETMotorType(Tmp, Buf[Tmp + 1]);             //  Motor types can be: TYPE_TACHO, TYPE_NONE, TYPE_MINITACHO
-            SETAvgTachoCount(Tmp, 0);                    //  Switching motor => speed = 0
+            SETMotorType(Tmp, Buf[Tmp + 1]); // Motor types can be: TYPE_TACHO, TYPE_NONE, TYPE_MINITACHO
+            SETAvgTachoCount(Tmp, 0); // Switching motor => speed = 0
           }
           else
           {
             // No motor is connected
-            Motor[Tmp].State  =  IDLE;
+            Motor[Tmp].State = IDLE;
             SetCoast(Tmp);
           }
-          Motor[Tmp].Type          =  Buf[Tmp + 1];
+          Motor[Tmp].Type = Buf[Tmp + 1];
 
           // All counts are reset when motor type changes
-          Motor[Tmp].TachoCnt      =  0;
-          pMotor[Tmp].TachoCounts  =  0;
-          Motor[Tmp].TimeCnt       =  0;
-          pMotor[Tmp].TachoSensor  =  0;
-          Motor[Tmp].TachoSensor   =  0;
-          Motor[Tmp].Mutex         =  FALSE;
+          Motor[Tmp].TachoCnt = 0;
+          pMotor[Tmp].TachoCounts = 0;
+          Motor[Tmp].TimeCnt = 0;
+          pMotor[Tmp].TachoSensor = 0;
+          Motor[Tmp].TachoSensor = 0;
+          Motor[Tmp].Mutex = FALSE;
         }
       }
     }
@@ -2326,11 +2355,11 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
       {
         if (Buf[1] & (1 << Tmp))
         {
-          Motor[Tmp].Mutex         =  TRUE;
-          Motor[Tmp].TachoCnt      =  0;
-          pMotor[Tmp].TachoCounts  =  0;
-          Motor[Tmp].TimeCnt       =  0;
-          Motor[Tmp].Mutex         =  FALSE;
+          Motor[Tmp].Mutex = TRUE;
+          Motor[Tmp].TachoCnt = 0;
+          pMotor[Tmp].TachoCounts = 0;
+          Motor[Tmp].TimeCnt = 0;
+          Motor[Tmp].Mutex = FALSE;
         }
       }
     }
@@ -2343,10 +2372,10 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
       {
         if (Buf[1] & (1 << Tmp))
         {
-          Motor[Tmp].Mutex         =  TRUE;
-          pMotor[Tmp].TachoSensor  =  0;
-          Motor[Tmp].TachoSensor   =  0;
-          Motor[Tmp].Mutex         =  FALSE;
+          Motor[Tmp].Mutex = TRUE;
+          pMotor[Tmp].TachoSensor = 0;
+          Motor[Tmp].TachoSensor = 0;
+          Motor[Tmp].Mutex = FALSE;
         }
       }
     }
@@ -2356,20 +2385,26 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
     {
       UBYTE Tmp;
 
-      TestAndFloatSyncedMotors(Buf[1], FALSE);
+     // TestAndFloatSyncedMotors(Buf[1], FALSE);
 
       for (Tmp = 0;Tmp < OUTPUTS;Tmp++)
       {
-        if (Buf[1] & (1 << Tmp))
+	if (Buf[1] & (1 << Tmp))
         {
-          Motor[Tmp].Mutex     = TRUE;
+          Motor[Tmp].Mutex = TRUE;
 
           if (Buf[2])
           {
+	  #ifdef DEBUG_FREIN
+	    printk("Stop'n'brake\n");
+	  #endif
             StopAndBrakeMotor(Tmp);
           }
           else
           {
+	  #ifdef DEBUG_FREIN
+	    printk("Stop'n'float\n");
+	  #endif
             StopAndFloatMotor(Tmp);
           }
 
@@ -2391,7 +2426,7 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
       {
         if (Buf[1] & (1 << Tmp))
         {
-          Motor[Tmp].Mutex       = TRUE;
+	  Motor[Tmp].Mutex = TRUE;
           Motor[Tmp].TargetPower = (SLONG)(Buf[2]) * (SLONG)(Motor[Tmp].Pol) * (SLONG)SPEED_PWMCNT_REL;
 
           if ((IDLE == Motor[Tmp].State) || (BRAKED == Motor[Tmp].State))
@@ -2416,8 +2451,8 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
       {
         if (Buf[1] & (1 << Tmp))
         {
-          Motor[Tmp].Mutex        = TRUE;
-          Motor[Tmp].TargetSpeed  = (Buf[2]) * (Motor[Tmp].Pol);
+          Motor[Tmp].Mutex = TRUE;
+          Motor[Tmp].TargetSpeed = (Buf[2]) * (Motor[Tmp].Pol);
           if ((IDLE == Motor[Tmp].State) || (BRAKED == Motor[Tmp].State))
           {
             Motor[Tmp].TargetState = UNLIMITED_REG;
@@ -2438,7 +2473,7 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
           Motor[Tmp].Mutex = TRUE;
           if ((IDLE == Motor[Tmp].State) || (BRAKED == Motor[Tmp].State))
           {
-            Motor[Tmp].State  = Motor[Tmp].TargetState;
+            Motor[Tmp].State = Motor[Tmp].TargetState;
           }
           Motor[Tmp].Mutex = FALSE;
         }
@@ -2469,7 +2504,7 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
             }
             else
             {
-              Motor[Tmp].Pol =  1;
+              Motor[Tmp].Pol = 1;
             }
           }
           else
@@ -2477,9 +2512,9 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
             if (Motor[Tmp].Pol != (SBYTE)Buf[2])
             {
-              Motor[Tmp].TargetPower  = (Motor[Tmp].TargetPower) * -1;
-              Motor[Tmp].TargetSpeed  = (Motor[Tmp].TargetSpeed) * -1;
-              Motor[Tmp].Pol          = Buf[2];
+              Motor[Tmp].TargetPower = (Motor[Tmp].TargetPower) * -1;
+              Motor[Tmp].TargetSpeed = (Motor[Tmp].TargetSpeed) * -1;
+              Motor[Tmp].Pol = Buf[2];
             }
           }
           SetPower(Tmp, Motor[Tmp].TargetPower);
@@ -2496,8 +2531,8 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
     case opOUTPUT_STEP_POWER:
     {
-      UBYTE       Tmp;
-      STEPPOWER   StepPower;
+      UBYTE Tmp;
+      STEPPOWER StepPower;
 
       memcpy((UBYTE*)(&(StepPower.Cmd)), &Buf[0], sizeof(StepPower));
 
@@ -2522,14 +2557,14 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
           StepPowerSteps[Tmp] = TachoSteps[Tmp];
 
-          ReadyStatus |= (0x01 << Tmp);   // Set Ready flag
-          TestStatus  |= (0x01 << Tmp);   // Set Test flag
+          ReadyStatus |= (0x01 << Tmp); // Set Ready flag
+          TestStatus |= (0x01 << Tmp); // Set Test flag
 
-          Motor[Tmp].TargetPower   = StepPower.Power * SPEED_PWMCNT_REL * (Motor[Tmp].Pol);
-          Motor[Tmp].TachoCntUp    = StepPower.Step1 * (Motor[Tmp].Pol);
+          Motor[Tmp].TargetPower = StepPower.Power * SPEED_PWMCNT_REL * (Motor[Tmp].Pol);
+          Motor[Tmp].TachoCntUp = StepPower.Step1 * (Motor[Tmp].Pol);
           Motor[Tmp].TachoCntConst = StepPower.Step2 * (Motor[Tmp].Pol);
-          Motor[Tmp].TachoCntDown  = StepPower.Step3 * (Motor[Tmp].Pol);
-          Motor[Tmp].TargetBrake   = StepPower.Brake;
+          Motor[Tmp].TachoCntDown = StepPower.Step3 * (Motor[Tmp].Pol);
+          Motor[Tmp].TargetBrake = StepPower.Brake;
           if (Motor[Tmp].TargetPower >= 0)
           {
             Motor[Tmp].Dir = 1;
@@ -2557,9 +2592,9 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
     case opOUTPUT_TIME_POWER:
     {
-      UBYTE       Tmp;
-      TIMEPOWER   TimePower;
-      SLONG       Inc;
+      UBYTE Tmp;
+      TIMEPOWER TimePower;
+      SLONG Inc;
 
       memcpy((UBYTE*)(&(TimePower.Cmd)), &Buf[0], sizeof(TimePower));
 
@@ -2576,7 +2611,7 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
       if ((TimePower.Time1 > 0) || (TimePower.Time2 > 0) || (TimePower.Time3 > 0))
       {
-        Inc =  SOFT_TIMER_MS;
+        Inc = SOFT_TIMER_MS;
       }
       else
       {
@@ -2589,18 +2624,18 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
         {
           Motor[Tmp].Mutex = TRUE;
 
-          StepPowerSteps[Tmp]   =  TimerSteps[Tmp];
-          Motor[Tmp].TimeInc    =  Inc * (Motor[Tmp].Pol);
-          *StepPowerSteps[Tmp]  =  0;
+          StepPowerSteps[Tmp] = TimerSteps[Tmp];
+          Motor[Tmp].TimeInc = Inc * (Motor[Tmp].Pol);
+          *StepPowerSteps[Tmp] = 0;
 
-          ReadyStatus |= (0x01 << Tmp);   // Set Ready flag
-          TestStatus  |= (0x01 << Tmp);   // Set Test flag
+          ReadyStatus |= (0x01 << Tmp); // Set Ready flag
+          TestStatus |= (0x01 << Tmp); // Set Test flag
 
-          Motor[Tmp].TargetPower   = TimePower.Power * SPEED_PWMCNT_REL * (Motor[Tmp].Pol);
-          Motor[Tmp].TachoCntUp    = TimePower.Time1 * (Motor[Tmp].Pol);
+          Motor[Tmp].TargetPower = TimePower.Power * SPEED_PWMCNT_REL * (Motor[Tmp].Pol);
+          Motor[Tmp].TachoCntUp = TimePower.Time1 * (Motor[Tmp].Pol);
           Motor[Tmp].TachoCntConst = TimePower.Time2 * (Motor[Tmp].Pol);
-          Motor[Tmp].TachoCntDown  = TimePower.Time3 * (Motor[Tmp].Pol);
-          Motor[Tmp].TargetBrake   = TimePower.Brake;
+          Motor[Tmp].TachoCntDown = TimePower.Time3 * (Motor[Tmp].Pol);
+          Motor[Tmp].TargetBrake = TimePower.Brake;
 
           if (Motor[Tmp].TargetPower >= 0)
           {
@@ -2629,8 +2664,8 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
     case opOUTPUT_STEP_SPEED:
     {
-      UBYTE       Tmp;
-      STEPSPEED   StepSpeed;
+      UBYTE Tmp;
+      STEPSPEED StepSpeed;
 
       memcpy((UBYTE*)(&(StepSpeed.Cmd)), &Buf[0], sizeof(StepSpeed));
 
@@ -2655,14 +2690,14 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
           StepPowerSteps[Tmp] = TachoSteps[Tmp];
 
-          ReadyStatus |= (0x01 << Tmp);   // Set Ready flag
-          TestStatus  |= (0x01 << Tmp);   // Set Test flag
+          ReadyStatus |= (0x01 << Tmp); // Set Ready flag
+          TestStatus |= (0x01 << Tmp); // Set Test flag
 
-          Motor[Tmp].TargetPower   = StepSpeed.Speed * (Motor[Tmp].Pol);
-          Motor[Tmp].TachoCntUp    = StepSpeed.Step1 * (Motor[Tmp].Pol);
+          Motor[Tmp].TargetPower = StepSpeed.Speed * (Motor[Tmp].Pol);
+          Motor[Tmp].TachoCntUp = StepSpeed.Step1 * (Motor[Tmp].Pol);
           Motor[Tmp].TachoCntConst = StepSpeed.Step2 * (Motor[Tmp].Pol);
-          Motor[Tmp].TachoCntDown  = StepSpeed.Step3 * (Motor[Tmp].Pol);
-          Motor[Tmp].TargetBrake   = StepSpeed.Brake;
+          Motor[Tmp].TachoCntDown = StepSpeed.Step3 * (Motor[Tmp].Pol);
+          Motor[Tmp].TargetBrake = StepSpeed.Brake;
 
           if (Motor[Tmp].TargetPower >= 0)
           {
@@ -2684,7 +2719,7 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
             }
           }
           Motor[Tmp].TargetSpeed = Motor[Tmp].TargetPower;
-          Motor[Tmp].Mutex       = FALSE;
+          Motor[Tmp].Mutex = FALSE;
         }
       }
     }
@@ -2692,9 +2727,9 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
     case opOUTPUT_TIME_SPEED:
     {
-      UBYTE       Tmp;
-      SLONG       Inc;
-      TIMESPEED   TimeSpeed;
+      UBYTE Tmp;
+      SLONG Inc;
+      TIMESPEED TimeSpeed;
 
 
       memcpy((UBYTE*)(&(TimeSpeed.Cmd)), &Buf[0], sizeof(TimeSpeed));
@@ -2727,18 +2762,18 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
         {
           Motor[Tmp].Mutex = TRUE;
 
-          StepPowerSteps[Tmp]   =  TimerSteps[Tmp];
-          Motor[Tmp].TimeInc    =  Inc * (Motor[Tmp].Pol);
-          *StepPowerSteps[Tmp]  =  0;
+          StepPowerSteps[Tmp] = TimerSteps[Tmp];
+          Motor[Tmp].TimeInc = Inc * (Motor[Tmp].Pol);
+          *StepPowerSteps[Tmp] = 0;
 
-          ReadyStatus |= (0x01 << Tmp);   // Set Ready flag
-          TestStatus  |= (0x01 << Tmp);   // Set Test flag
+          ReadyStatus |= (0x01 << Tmp); // Set Ready flag
+          TestStatus |= (0x01 << Tmp); // Set Test flag
 
-          Motor[Tmp].TargetPower   = TimeSpeed.Speed * (Motor[Tmp].Pol);
-          Motor[Tmp].TachoCntUp    = TimeSpeed.Time1 * (Motor[Tmp].Pol);
+          Motor[Tmp].TargetPower = TimeSpeed.Speed * (Motor[Tmp].Pol);
+          Motor[Tmp].TachoCntUp = TimeSpeed.Time1 * (Motor[Tmp].Pol);
           Motor[Tmp].TachoCntConst = TimeSpeed.Time2 * (Motor[Tmp].Pol);
-          Motor[Tmp].TachoCntDown  = TimeSpeed.Time3 * (Motor[Tmp].Pol);
-          Motor[Tmp].TargetBrake   = TimeSpeed.Brake;
+          Motor[Tmp].TachoCntDown = TimeSpeed.Time3 * (Motor[Tmp].Pol);
+          Motor[Tmp].TargetBrake = TimeSpeed.Brake;
 
           if (Motor[Tmp].TargetPower >= 0)
           {
@@ -2760,7 +2795,7 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
             }
           }
           Motor[Tmp].TargetSpeed = Motor[Tmp].TargetPower;
-          Motor[Tmp].Mutex       = FALSE;
+          Motor[Tmp].Mutex = FALSE;
         }
       }
     }
@@ -2768,9 +2803,9 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
     case opOUTPUT_STEP_SYNC:
     {
-      UBYTE       No  = 0;
-      UBYTE       Tmp;
-      STEPSYNC    StepSync;
+      UBYTE No = 0;
+      UBYTE Tmp;
+      STEPSYNC StepSync;
 
       memcpy((UBYTE*)(&(StepSync.Cmd)), &Buf[0], sizeof(StepSync));
 
@@ -2792,10 +2827,10 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
         {
           Motor[Tmp].Mutex = TRUE;
 
-          ReadyStatus           |= (0x01 << Tmp);   // Set Ready flag
-          TestStatus            |= (0x01 << Tmp);   // Set Test flag
-          StepPowerSteps[Tmp]    = TachoSteps[Tmp];
-          Motor[Tmp].TargetBrake =  StepSync.Brake;
+          ReadyStatus |= (0x01 << Tmp); // Set Ready flag
+          TestStatus |= (0x01 << Tmp); // Set Test flag
+          StepPowerSteps[Tmp] = TachoSteps[Tmp];
+          Motor[Tmp].TargetBrake = StepSync.Brake;
 
           if (0 == StepSync.Step)
           {
@@ -2806,12 +2841,12 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
           if (0 == StepSync.Turn)
           {
             // Synced motors are going straight
-            Motor[Tmp].TargetPower   = StepSync.Speed;
-            Motor[Tmp].TurnRatio     = 100;
+            Motor[Tmp].TargetPower = StepSync.Speed;
+            Motor[Tmp].TurnRatio = 100;
             Motor[Tmp].TachoCntConst = StepSync.Step;
-            SyncMNos[No]             = Tmp;
-            TimeOutSpeed0[Tmp]       = FREERunning24bittimer;
-            MaxSyncSpeed             = StepSync.Speed;
+            SyncMNos[No] = Tmp;
+            TimeOutSpeed0[Tmp] = FREERunning24bittimer;
+            MaxSyncSpeed = StepSync.Speed;
 
             // Find the direction the main motor will drive
             if (0 <= StepSync.Speed)
@@ -2830,7 +2865,7 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
             else
             {
               Motor[Tmp].State = SYNCED_SLAVE;
-              Motor[Tmp].Dir   = NON_INV;
+              Motor[Tmp].Dir = NON_INV;
             }
           }
           else
@@ -2866,7 +2901,7 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
               {
                 Motor[Tmp].Dir = NON_INV;
 
-                if (StepSync.Turn > 0)       // Invert the ratio in the first quarter
+                if (StepSync.Turn > 0) // Invert the ratio in the first quarter
                 {
                   Motor[Tmp].TurnRatio = 100 - StepSync.Turn;
                 }
@@ -2902,16 +2937,16 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
             if (0 == MotorIndex)
             {
-              Motor[Tmp].TargetPower   = StepSync.Speed;
+              Motor[Tmp].TargetPower = StepSync.Speed;
               Motor[Tmp].TachoCntConst = StepSync.Step;
-              MaxSyncSpeed             = StepSync.Speed;
-              Motor[Tmp].State         = LIMITED_DIFF_TURN_SYNC;
+              MaxSyncSpeed = StepSync.Speed;
+              Motor[Tmp].State = LIMITED_DIFF_TURN_SYNC;
             }
             else
             {
-              Motor[Tmp].TargetPower   = (SLONG)(((SLONG)(StepSync.Speed) * (SLONG)(Motor[Tmp].TurnRatio))/((SLONG)100 * Motor[Tmp].Dir));
-              Motor[Tmp].TachoCntConst = ((StepSync.Step  * (SLONG)(Motor[Tmp].TurnRatio))/100) * Motor[Tmp].Dir;
-              Motor[Tmp].State         = SYNCED_SLAVE;
+              Motor[Tmp].TargetPower = (SLONG)(((SLONG)(StepSync.Speed) * (SLONG)(Motor[Tmp].TurnRatio))/((SLONG)100 * Motor[Tmp].Dir));
+              Motor[Tmp].TachoCntConst = ((StepSync.Step * (SLONG)(Motor[Tmp].TurnRatio))/100) * Motor[Tmp].Dir;
+              Motor[Tmp].State = SYNCED_SLAVE;
             }
 
             TimeOutSpeed0[Tmp] = FREERunning24bittimer;
@@ -2919,17 +2954,17 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
           No++;
         }
       }
-      Motor[SyncMNos[0]].Mutex      =  FALSE;
-      Motor[SyncMNos[1]].Mutex      =  FALSE;
+      Motor[SyncMNos[0]].Mutex = FALSE;
+      Motor[SyncMNos[1]].Mutex = FALSE;
     }
     break;
 
     case opOUTPUT_TIME_SYNC:
     {
-      SLONG     Inc;
-      UBYTE     No  = 0;
-      UBYTE     Tmp;
-      TIMESYNC  TimeSync;
+      SLONG Inc;
+      UBYTE No = 0;
+      UBYTE Tmp;
+      TIMESYNC TimeSync;
 
       memcpy((UBYTE*)(&(TimeSync.Cmd)), &Buf[0], sizeof(TimeSync));
 
@@ -2957,26 +2992,26 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
       {
         if (TimeSync.Nos & (1 << Tmp))
         {
-          Motor[Tmp].Mutex       =  TRUE;
+          Motor[Tmp].Mutex = TRUE;
 
-          ReadyStatus           |=  (0x01 << Tmp);   // Set Ready flag
-          TestStatus            |=  (0x01 << Tmp);   // Set Test flag
+          ReadyStatus |= (0x01 << Tmp); // Set Ready flag
+          TestStatus |= (0x01 << Tmp); // Set Test flag
 
-          StepPowerSteps[Tmp]    =  TimerSteps[Tmp];
-          Motor[Tmp].TimeInc     =  Inc;
-          *TimerSteps[Tmp]       =  0;
+          StepPowerSteps[Tmp] = TimerSteps[Tmp];
+          Motor[Tmp].TimeInc = Inc;
+          *TimerSteps[Tmp] = 0;
 
-          Motor[Tmp].TargetBrake =  TimeSync.Brake;
+          Motor[Tmp].TargetBrake = TimeSync.Brake;
 
           if (0 == TimeSync.Turn)
           {
             // Synced motors are going straight
-            Motor[Tmp].TargetPower   = TimeSync.Speed;
-            Motor[Tmp].TurnRatio     = 100;
+            Motor[Tmp].TargetPower = TimeSync.Speed;
+            Motor[Tmp].TurnRatio = 100;
             Motor[Tmp].TachoCntConst = TimeSync.Time;
-            SyncMNos[No]             = Tmp;
-            TimeOutSpeed0[Tmp]       = FREERunning24bittimer;
-            MaxSyncSpeed             = TimeSync.Speed;
+            SyncMNos[No] = Tmp;
+            TimeOutSpeed0[Tmp] = FREERunning24bittimer;
+            MaxSyncSpeed = TimeSync.Speed;
 
             // Find the direction the main motor will drive
             if (0 <= TimeSync.Speed)
@@ -2995,12 +3030,12 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
             else
             {
               Motor[Tmp].State = SYNCED_SLAVE;
-              Motor[Tmp].Dir   = NON_INV;
+              Motor[Tmp].Dir = NON_INV;
             }
           }
           else
           {
-            //   Turning
+            // Turning
             UBYTE MotorIndex;
 
             if (0 < TimeSync.Turn)
@@ -3031,7 +3066,7 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
               {
                 Motor[Tmp].Dir = NON_INV;
 
-                if (TimeSync.Turn > 0)       // Invert the ratio in the first quarter
+                if (TimeSync.Turn > 0) // Invert the ratio in the first quarter
                 {
                   Motor[Tmp].TurnRatio = 100 - TimeSync.Turn;
                 }
@@ -3067,25 +3102,25 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
             if (0 == MotorIndex)
             {
-              Motor[Tmp].TargetPower   = TimeSync.Speed;
+              Motor[Tmp].TargetPower = TimeSync.Speed;
               Motor[Tmp].TachoCntConst = TimeSync.Time;
-              MaxSyncSpeed             = TimeSync.Speed;
-              Motor[Tmp].State         = LIMITED_DIFF_TURN_SYNC;
+              MaxSyncSpeed = TimeSync.Speed;
+              Motor[Tmp].State = LIMITED_DIFF_TURN_SYNC;
             }
             else
             {
-              Motor[Tmp].TargetPower    = (SLONG)(((SLONG)(TimeSync.Speed) * (SLONG)(Motor[Tmp].TurnRatio))/((SLONG)100 * Motor[Tmp].Dir));
-              Motor[Tmp].TachoCntConst  = TimeSync.Time  * Motor[Tmp].Dir;
-              Motor[Tmp].TimeInc       *= Motor[Tmp].Dir;
-              Motor[Tmp].State          = SYNCED_SLAVE;
+              Motor[Tmp].TargetPower = (SLONG)(((SLONG)(TimeSync.Speed) * (SLONG)(Motor[Tmp].TurnRatio))/((SLONG)100 * Motor[Tmp].Dir));
+              Motor[Tmp].TachoCntConst = TimeSync.Time * Motor[Tmp].Dir;
+              Motor[Tmp].TimeInc *= Motor[Tmp].Dir;
+              Motor[Tmp].State = SYNCED_SLAVE;
             }
             TimeOutSpeed0[Tmp] = FREERunning24bittimer;
           }
           No++;
         }
       }
-      Motor[SyncMNos[0]].Mutex      =  FALSE;
-      Motor[SyncMNos[1]].Mutex      =  FALSE;
+      Motor[SyncMNos[0]].Mutex = FALSE;
+      Motor[SyncMNos[1]].Mutex = FALSE;
     }
     break;
 
@@ -3101,24 +3136,24 @@ static ssize_t Device1Write(struct file *File,const char *Buffer,size_t Count,lo
 
 static ssize_t Device1Read(struct file *File,char *Buffer,size_t Count,loff_t *Offset)
 {
-  int     Lng     = 0;
+  int Lng = 0;
 
-  Lng    =  snprintf(&Buffer[0],Count,"%01u ",ReadyStatus);
-  Lng   +=  snprintf(&Buffer[Lng],Count - Lng,"%01u ",TestStatus);
+  Lng = snprintf(&Buffer[0],Count,"%01u ",ReadyStatus);
+  Lng += snprintf(&Buffer[Lng],Count - Lng,"%01u ",TestStatus);
 
   return (Lng);
 }
 
 
-static    const struct file_operations Device1Entries =
+static const struct file_operations Device1Entries =
 {
-  .owner        = THIS_MODULE,
-  .read         = Device1Read,
-  .write        = Device1Write
+  .owner = THIS_MODULE,
+  .read = Device1Read,
+  .write = Device1Write
 };
 
 
-static    struct miscdevice Device1 =
+static struct miscdevice Device1 =
 {
   MISC_DYNAMIC_MINOR,
   DEVICE1_NAME,
@@ -3127,23 +3162,23 @@ static    struct miscdevice Device1 =
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    GetPeriphealBasePtr
- *
- *  Helper function for getting the peripheal HW base address
- *
- */
-void    GetPeriphealBasePtr(ULONG Address, ULONG Size, ULONG **Ptr)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief GetPeriphealBasePtr
+*
+* Helper function for getting the peripheal HW base address
+*
+*/
+void GetPeriphealBasePtr(ULONG Address, ULONG Size, ULONG **Ptr)
 {
   /* eCAP0 pointer */
   if (request_mem_region(Address,Size,MODULE_NAME) >= 0)
   {
 
-    *Ptr  =  (ULONG*)ioremap(Address,Size);
+    *Ptr = (ULONG*)ioremap(Address,Size);
 
     if (*Ptr != NULL)
     {
@@ -3164,62 +3199,64 @@ void    GetPeriphealBasePtr(ULONG Address, ULONG Size, ULONG **Ptr)
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    Device1Init
- *
- */
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief Device1Init
+*
+*/
 static int Device1Init(void)
 {
-  int     Result = -1;
-  UBYTE   Tmp;
+  int Result = -1;
+  UBYTE Tmp;
 
-  GetPeriphealBasePtr(0x01C14000, 0x190, (ULONG**)&SYSCFG0);  /* SYSCFG0 pointer    */
-  GetPeriphealBasePtr(0x01E2C000, 0x1C,  (ULONG**)&SYSCFG1);  /* SYSCFG1 pointer    */
-  GetPeriphealBasePtr(0x01F02000, 0x2854,(ULONG**)&eHRPWM1);  /* eHRPWM Pointer     */
-  GetPeriphealBasePtr(0x01F06000, 0x60,  (ULONG**)&eCAP0);    /* eCAP0 pointer      */
-  GetPeriphealBasePtr(0x01F07000, 0x60,  (ULONG**)&eCAP1);    /* eCAP1 pointer      */
-  GetPeriphealBasePtr(0x01F0D000, 0x80,  (ULONG**)&TIMER64P3);/* TIMER64P3 pointer  */
-  GetPeriphealBasePtr(0x01E26000, 0xD4,  (ULONG**)&GPIO);     /* GPIO pointer       */
-  GetPeriphealBasePtr(0x01E1A000, 0x1F8, (ULONG**)&PLLC1);    /* PLLC1 pointer      */
-  GetPeriphealBasePtr(0x01E27000, 0xA80, (ULONG**)&PSC1);     /* PSC1 pointer       */
+  GetPeriphealBasePtr(0x01C14000, 0x190, (ULONG**)&SYSCFG0); /* SYSCFG0 pointer */
+  GetPeriphealBasePtr(0x01E2C000, 0x1C, (ULONG**)&SYSCFG1); /* SYSCFG1 pointer */
+  GetPeriphealBasePtr(0x01F02000, 0x2854,(ULONG**)&eHRPWM1); /* eHRPWM Pointer */
+  GetPeriphealBasePtr(0x01F06000, 0x60, (ULONG**)&eCAP0); /* eCAP0 pointer */
+  GetPeriphealBasePtr(0x01F07000, 0x60, (ULONG**)&eCAP1); /* eCAP1 pointer */
+  GetPeriphealBasePtr(0x01F0D000, 0x80, (ULONG**)&TIMER64P3);/* TIMER64P3 pointer */
+  GetPeriphealBasePtr(0x01E26000, 0xD4, (ULONG**)&GPIO); /* GPIO pointer */
+  GetPeriphealBasePtr(0x01E1A000, 0x1F8, (ULONG**)&PLLC1); /* PLLC1 pointer */
+  GetPeriphealBasePtr(0x01E27000, 0xA80, (ULONG**)&PSC1); /* PSC1 pointer */
 
-  Result  =  misc_register(&Device1);
+  Result = misc_register(&Device1);
   if (Result)
   {
-    printk("  %s device register failed\n",DEVICE1_NAME);
+    printk(" %s device register failed\n",DEVICE1_NAME);
   }
   else
   {
 #ifdef DEBUG
-    printk("  %s device register succes\n",DEVICE1_NAME);
+    printk(" %s device register succes\n",DEVICE1_NAME);
 #endif
 
-    iowrite32(0x00000003, &PSC1[0x291]); /* Setup ePWM module power on  */
-    iowrite32(0x00000003, &PSC1[0x48]);  /* Eval the NEXT field         */
+    iowrite32(0x00000003, &PSC1[0x291]); /* Setup ePWM module power on */
+    iowrite32(0x00000003, &PSC1[0x48]); /* Eval the NEXT field */
 
     iowrite32((ioread32(&PSC1[0x294]) | 0x00000003), &PSC1[0x294]);/* Turn PSC on for the eCAP module */
-    iowrite32((ioread32(&PSC1[0x48])  | 0x00000003), &PSC1[0x48]); /* Execute the next step           */
+    iowrite32((ioread32(&PSC1[0x48]) | 0x00000003), &PSC1[0x48]); /* Execute the next step */
 
     for(Tmp = 0; Tmp < NO_OF_OUTPUT_PORTS; Tmp++)
     {
       memset(&Motor[Tmp], 0, sizeof(MOTOR));
 
-      Motor[Tmp].TargetBrake  =  COAST;
-      Motor[Tmp].Pol          =  1;
-      Motor[Tmp].Direction    =  FORWARD;
-      Motor[Tmp].Type         =  TYPE_NONE;
-      Motor[Tmp].State        =  IDLE;
-      Motor[Tmp].TargetState  =  UNLIMITED_UNREG; //default startup state
-      Motor[Tmp].Mutex        =  FALSE;
-      Motor[Tmp].BrakeAfter   =  FALSE;
-
+      Motor[Tmp].TargetBrake = COAST;
+      Motor[Tmp].Pol = 1;
+      Motor[Tmp].Direction = FORWARD;
+      Motor[Tmp].Type = TYPE_NONE;
+      Motor[Tmp].State = IDLE;
+      Motor[Tmp].TargetState = UNLIMITED_UNREG; //default startup state
+      Motor[Tmp].Mutex = FALSE;
+      Motor[Tmp].BrakeAfter = FALSE;
+      
+      Encoder [Tmp] = Encoder_prev[Tmp] = 0; // Motor A channel A | Mot A channel B | 0 | 0 | 0 | 0 | 0 | 0|
+					     // 0 | 0 | Motor B channel A | Mot B channel B | 0 | 0 | 0 | 0| etc.
       CLEARTachoArray(Tmp);
-      SETMotorType(Tmp, TYPE_NONE);                  //  Motor types can be: TYPE_TACHO, TYPE_NONE, TYPE_MINITACHO
-      SETAvgTachoCount(Tmp, 0);                      //  At initialisation speed is assumed to be zero
+      SETMotorType(Tmp, TYPE_NONE); // Motor types can be: TYPE_TACHO, TYPE_NONE, TYPE_MINITACHO
+      SETAvgTachoCount(Tmp, 0); // At initialisation speed is assumed to be zero
     }
 
     /* Float the tacho inputs */
@@ -3235,12 +3272,19 @@ static int Device1Init(void)
 
     /* Setup the PWM peripheals */
     SETUPPwmModules;
+    
+    SetDutyMB(0);
 
     /* Setup interrupt for the tacho int pins */
     SetGpioRisingIrq(IRQA_PINNO, IntA);
     SetGpioRisingIrq(IRQB_PINNO, IntB);
     SetGpioRisingIrq(IRQC_PINNO, IntC);
     SetGpioRisingIrq(IRQD_PINNO, IntD);
+    
+    SetGpioRisingIrq(IRQA_PINN1, IntA1);
+    SetGpioRisingIrq(IRQB_PINN1, IntB1);
+    SetGpioRisingIrq(IRQC_PINN1, IntC1);
+    SetGpioRisingIrq(IRQD_PINN1, IntD1);
   }
   return (Result);
 }
@@ -3251,7 +3295,7 @@ static void Device1Exit(void)
   hrtimer_cancel(&Device1Timer);
   misc_deregister(&Device1);
 #ifdef DEBUG
-  printk("  %s device unregistered\n",DEVICE1_NAME);
+  printk(" %s device unregistered\n",DEVICE1_NAME);
 #endif
   iounmap(SYSCFG0);
   iounmap(SYSCFG1);
@@ -3263,17 +3307,17 @@ static void Device1Exit(void)
   iounmap(PLLC1);
   iounmap(PSC1);
 #ifdef DEBUG
-  printk("  %s memory unmapped\n",DEVICE1_NAME);
+  printk(" %s memory unmapped\n",DEVICE1_NAME);
 #endif
 }
 
 
-static    void  __iomem *GpioBase;
+static void __iomem *GpioBase;
 
-void      SetGpio(int Pin)
+void SetGpio(int Pin)
 {
-  int     Tmp = 0;
-  void    __iomem *Reg;
+  int Tmp = 0;
+  void __iomem *Reg;
 
   if (Pin >= 0)
   {
@@ -3283,36 +3327,36 @@ void      SetGpio(int Pin)
     }
     if (MuxRegMap[Tmp].Pin == Pin)
     {
-      Reg   =  da8xx_syscfg0_base + 0x120 + (MuxRegMap[Tmp].MuxReg << 2);
+      Reg = da8xx_syscfg0_base + 0x120 + (MuxRegMap[Tmp].MuxReg << 2);
 
-      *(u32*)Reg &=  MuxRegMap[Tmp].Mask;
-      *(u32*)Reg |=  MuxRegMap[Tmp].Mode;
+      *(u32*)Reg &= MuxRegMap[Tmp].Mask;
+      *(u32*)Reg |= MuxRegMap[Tmp].Mode;
 
       if (Pin < NO_OF_GPIOS)
       {
 #ifdef DEBUG
-        printk("    GP%d_%-2d   0x%08X and 0x%08X or 0x%08X\n",(Pin >> 4),(Pin & 0x0F),(u32)Reg, MuxRegMap[Tmp].Mask, MuxRegMap[Tmp].Mode);
+        printk(" GP%d_%-2d 0x%08X and 0x%08X or 0x%08X\n",(Pin >> 4),(Pin & 0x0F),(u32)Reg, MuxRegMap[Tmp].Mask, MuxRegMap[Tmp].Mode);
 #endif
       }
       else
       {
 #ifdef DEBUG
-        printk("   OUTPUT FUNCTION 0x%08X and 0x%08X or 0x%08X\n",(u32)Reg, MuxRegMap[Tmp].Mask, MuxRegMap[Tmp].Mode);
+        printk(" OUTPUT FUNCTION 0x%08X and 0x%08X or 0x%08X\n",(u32)Reg, MuxRegMap[Tmp].Mask, MuxRegMap[Tmp].Mode);
 #endif
       }
     }
     else
     {
-      printk("    GP%d_%-2d Not found (Const no. %d, Tmp = %d)\n",(Pin >> 4),(Pin & 0x0F), Pin, Tmp);
+      printk(" GP%d_%-2d Not found (Const no. %d, Tmp = %d)\n",(Pin >> 4),(Pin & 0x0F), Pin, Tmp);
     }
   }
 }
 
 
-void      InitGpio(void)
+void InitGpio(void)
 {
-  int     Port;
-  int     Pin;
+  int Port;
+  int Pin;
 
   // unlock
   REGUnlock;
@@ -3320,14 +3364,14 @@ void      InitGpio(void)
   for (Port = 0;Port < NO_OF_OUTPUT_PORTS;Port++)
   {
 #ifdef DEBUG
-    printk("  Output port %d\n",Port + 1);
+    printk(" Output port %d\n",Port + 1);
 #endif
     for (Pin = 0;Pin < OUTPUT_PORT_PINS;Pin++)
     {
       if ((pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].Pin) >= 0)
       {
-        pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].pGpio  =  (struct gpio_controller *__iomem)(GpioBase + ((pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].Pin >> 5) * 0x28) + 0x10);
-        pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].Mask   =  (1 << (pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].Pin & 0x1F));
+        pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].pGpio = (struct gpio_controller *__iomem)(GpioBase + ((pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].Pin >> 5) * 0x28) + 0x10);
+        pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].Mask = (1 << (pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].Pin & 0x1F));
 
         SetGpio(pOutputPortPin[Hw][(Port * OUTPUT_PORT_PINS) + Pin].Pin);
       }
@@ -3339,7 +3383,7 @@ void      InitGpio(void)
 }
 
 
-void    SetGpioRisingIrq(UBYTE PinNo, irqreturn_t (*IntFuncPtr)(int, void *))
+void SetGpioRisingIrq(UBYTE PinNo, irqreturn_t (*IntFuncPtr)(int, void *))
 {
   UWORD Status;
 
@@ -3356,626 +3400,735 @@ void    SetGpioRisingIrq(UBYTE PinNo, irqreturn_t (*IntFuncPtr)(int, void *))
 
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- *
- */
-/*! \brief    IntA
- *
- *  Tacho A interrupt function
- *
- *  Tacho count is incremented or decremented on both positive
- *  and negative edges of the INT signal.
- *
- *  For each positive and negative edge of the INT tacho signal
- *  a timer is sampled. this is used to calculate the speed later on.
- *
- *  DirChgPtr is implemented for ensuring that there is enough
- *  samples in the same direction to calculate a speed.
- *
- */
-static    irqreturn_t IntA (int irq, void * dev)
+*
+* <hr size="1"/>
+* <b> write </b>
+*
+*/
+/*! \brief IntA
+*
+* Tacho A interrupt function
+*
+* Tacho count is incremented or decremented on both positive
+* and negative edges of the INT signal.
+*
+* For each positive and negative edge of the INT tacho signal
+* a timer is sampled. this is used to calculate the speed later on.
+*
+* DirChgPtr is implemented for ensuring that there is enough
+* samples in the same direction to calculate a speed.
+*
+*/
+
+
+static irqreturn_t IntA (int irq, void * dev)//channel A
 {
-  UBYTE   TmpPtr;
-  ULONG   IntAState;
-  ULONG   DirAState;
-  ULONG   Timer;
-
-  // Sample all necessary items as fast as possible
-  IntAState  =  READIntA;
-  DirAState  =  READDirA;
-  Timer      =  FREERunning24bittimer;
-
-  TmpPtr = (TachoSamples[0].ArrayPtr + 1) & (NO_OF_TACHO_SAMPLES-1);
-  TachoSamples[0].TachoArray[TmpPtr]  =  Timer;
-  TachoSamples[0].ArrayPtr            =  TmpPtr;
-
-  if ((35 < Motor[0].Speed) || (-35 > Motor[0].Speed))
-  {
-    if (FORWARD == Motor[0].Direction)
+  Encoder[0]=(((READIntA)?1<<7:0)|(Encoder[0]&0b01111111));
+  
+  if(Encoder[0]&0b10000000)
+  { 
+   if(Encoder[0]&0b01000000)
+   {
+     if(Encoder_prev[0]&0b10000000)
+     {
+       Motor[0].Direction = BACKWARD;
+       (Motor[0].IrqTacho)--;
+     }
+     else
+     {
+       Motor[0].Direction = FORWARD;
+       (Motor[0].IrqTacho)++;
+     }     
+   }
+   else
+   {    
+    if(Encoder_prev[0]&0b11000000)
     {
+      Motor[0].Direction = FORWARD;
       (Motor[0].IrqTacho)++;
     }
     else
     {
+      Motor[0].Direction = BACKWARD;
       (Motor[0].IrqTacho)--;
     }
-    if (Motor[0].DirChgPtr < SamplesPerSpeed[0][SAMPLES_ABOVE_SPEED_75])
-    {
-      Motor[0].DirChgPtr++;
-    }
+   }
   }
   else
   {
-    if (IntAState)
+    if(Encoder[0]&0b01000000)
     {
-      if(DirAState)
-      {
-        if (FORWARD == Motor[0].Direction)
-        {
-          if (Motor[0].DirChgPtr < SamplesPerSpeed[0][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[0].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[0].DirChgPtr = 0;
-        }
-        (Motor[0].IrqTacho)++;
-        Motor[0].Direction = FORWARD;
-      }
-      else
-      {
-        if (BACKWARD == Motor[0].Direction)
-        {
-          TachoSamples[0].TachoArray[TmpPtr] = Timer;
-          TachoSamples[0].ArrayPtr = TmpPtr;
-          if (Motor[0].DirChgPtr < SamplesPerSpeed[0][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[0].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[0].DirChgPtr = 0;
-        }
-        (Motor[0].IrqTacho)--;
-        Motor[0].Direction = BACKWARD;
-      }
+     	if(Encoder_prev[0]&0b11000000)
+	{
+	  Motor[0].Direction = BACKWARD;
+	  (Motor[0].IrqTacho)--;
+	}
+	else
+	{
+	  Motor[0].Direction = FORWARD;
+	  (Motor[0].IrqTacho)++;
+	}
     }
     else
     {
-      if(DirAState)
+      if(Encoder_prev[0]&0b10000000)
       {
-        if (BACKWARD == Motor[0].Direction)
-        {
-          if (Motor[0].DirChgPtr < SamplesPerSpeed[0][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[0].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[0].DirChgPtr = 0;
-        }
-        (Motor[0].IrqTacho)--;
-        Motor[0].Direction = BACKWARD;
+	Motor[0].Direction = FORWARD;
+	(Motor[0].IrqTacho)++;
       }
       else
       {
-        if (FORWARD == Motor[0].Direction)
-        {
-          if (Motor[0].DirChgPtr < SamplesPerSpeed[0][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[0].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[0].DirChgPtr = 0;
-        }
-        (Motor[0].IrqTacho)++;
-        Motor[0].Direction = FORWARD;
+	Motor[0].Direction = BACKWARD;
+	(Motor[0].IrqTacho)--;
       }
-    }
+    }    
   }
+  
+  Encoder_prev[0]=Encoder[0]&0b11000000;
+  
   return IRQ_HANDLED;
 }
 
-
-static    irqreturn_t IntB (int irq, void * dev)
+static irqreturn_t IntA1 (int irq, void * dev) // channel B
 {
-  UBYTE   volatile TmpPtr;
-  ULONG   volatile IntBState;
-  ULONG   volatile DirBState;
-  ULONG   volatile Timer;
-
-  // Sample all necessary items as fast as possible
-  IntBState  =  READIntB;
-  DirBState  =  READDirB;
-  Timer      =  FREERunning24bittimer;
-
-  TmpPtr = (TachoSamples[1].ArrayPtr + 1) & (NO_OF_TACHO_SAMPLES-1);
-  TachoSamples[1].TachoArray[TmpPtr]  =  Timer;
-  TachoSamples[1].ArrayPtr            =  TmpPtr;
-
-  if ((35 < Motor[1].Speed) || (-35 > Motor[1].Speed))
-  {
-    if (FORWARD == Motor[1].Direction)
+  Encoder[0]=(((READDirA)?1<<6:0)|(Encoder[0]&0b10111111));
+  
+  if(Encoder[0]&0b10000000)
+  { 
+   if(Encoder[0]&0b01000000)
+   {
+     if(Encoder_prev[0]&0b10000000)
+     {
+       Motor[0].Direction = BACKWARD;
+       (Motor[0].IrqTacho)--;
+     }
+     else
+     {
+       Motor[0].Direction = FORWARD;
+       (Motor[0].IrqTacho)++;
+     }     
+   }
+   else
+   {    
+    if(Encoder_prev[0]&0b11000000)
     {
+      Motor[0].Direction = FORWARD;
+      (Motor[0].IrqTacho)++;
+    }
+    else
+    {
+      Motor[0].Direction = BACKWARD;
+      (Motor[0].IrqTacho)--;
+    }
+   }
+  }
+  else
+  {
+    if(Encoder[0]&0b01000000)
+    {
+     	if(Encoder_prev[0]&0b11000000)
+	{
+	  Motor[0].Direction = BACKWARD;
+	  (Motor[0].IrqTacho)--;
+	}
+	else
+	{
+	  Motor[0].Direction = FORWARD;
+	  (Motor[0].IrqTacho)++;
+	}
+    }
+    else
+    {
+      if(Encoder_prev[0]&0b10000000)
+      {
+	Motor[0].Direction = FORWARD;
+	(Motor[0].IrqTacho)++;
+      }
+      else
+      {
+	Motor[0].Direction = BACKWARD;
+	(Motor[0].IrqTacho)--;
+	
+      }
+    }    
+  }
+  
+  Encoder_prev[0]=Encoder[0]&0b11000000;  
+  return IRQ_HANDLED;
+}
+
+static irqreturn_t IntB (int irq, void * dev)//channel A
+{
+    Encoder[1]=(((READIntB)?1<<5:0)|(Encoder[1]&0b11011111));
+  
+  if(Encoder[1]&0b00100000)
+  { 
+   if(Encoder[1]&0b00010000)
+   {
+     if(Encoder_prev[1]&0b00100000)
+     {
+       Motor[1].Direction = BACKWARD;
+       (Motor[1].IrqTacho)--;
+     }
+     else
+     {
+       Motor[1].Direction = FORWARD;
+       (Motor[1].IrqTacho)++;
+     }     
+   }
+   else
+   {    
+    if(Encoder_prev[1]&0b00110000)
+    {
+      Motor[1].Direction = FORWARD;
       (Motor[1].IrqTacho)++;
     }
     else
     {
+      Motor[1].Direction = BACKWARD;
       (Motor[1].IrqTacho)--;
     }
-
-    if (Motor[1].DirChgPtr < SamplesPerSpeed[1][SAMPLES_ABOVE_SPEED_75])
-    {
-      Motor[1].DirChgPtr++;
-    }
+   }
   }
   else
   {
-    if (IntBState)
+    if(Encoder[1]&0b00010000)
     {
-      if(DirBState)
-      {
-        if (FORWARD == Motor[1].Direction)
-        {
-          if (Motor[1].DirChgPtr < SamplesPerSpeed[1][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[1].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[1].DirChgPtr = 0;
-        }
-        (Motor[1].IrqTacho)++;
-        Motor[1].Direction = FORWARD;
-      }
-      else
-      {
-        if (BACKWARD == Motor[1].Direction)
-        {
-          if (Motor[1].DirChgPtr < SamplesPerSpeed[1][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[1].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[1].DirChgPtr = 0;
-        }
-        (Motor[1].IrqTacho)--;
-        Motor[1].Direction = BACKWARD;
-      }
+     	if(Encoder_prev[1]&0b00110000)
+	{
+	  Motor[1].Direction = BACKWARD;
+	  (Motor[1].IrqTacho)--;
+	}
+	else
+	{
+	  Motor[1].Direction = FORWARD;
+	  (Motor[1].IrqTacho)++;
+	}
     }
     else
     {
-      if(DirBState)
+      if(Encoder_prev[1]&0b00100000)
       {
-        if (BACKWARD == Motor[1].Direction)
-        {
-          if (Motor[1].DirChgPtr < SamplesPerSpeed[1][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[1].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[1].DirChgPtr = 0;
-        }
-        (Motor[1].IrqTacho)--;
-        Motor[1].Direction = BACKWARD;
+	Motor[1].Direction = FORWARD;
+	(Motor[1].IrqTacho)++;
       }
       else
       {
-        if (FORWARD == Motor[1].Direction)
-        {
-          if (Motor[1].DirChgPtr < SamplesPerSpeed[1][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[1].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[1].DirChgPtr = 0;
-        }
-        (Motor[1].IrqTacho)++;
-        Motor[1].Direction = FORWARD;
+	Motor[1].Direction = BACKWARD;
+	(Motor[1].IrqTacho)--;
       }
-    }
+    }    
   }
+  
+  Encoder_prev[1]=Encoder[1]&0b00110000;
+  
   return IRQ_HANDLED;
 }
 
 
-static    irqreturn_t IntC (int irq, void * dev)
+static irqreturn_t IntB1 (int irq, void * dev) // channel B
 {
-  UBYTE   TmpPtr;
-  ULONG   IntCState;
-  ULONG   DirCState;
-  ULONG   Timer;
-
-  // Sample all necessary items as fast as possible
-  IntCState  =  READIntC;
-  DirCState  =  READDirC;
-  Timer      =  FREERunning24bittimer;
-
-  TmpPtr = (TachoSamples[2].ArrayPtr + 1) & (NO_OF_TACHO_SAMPLES-1);
-  TachoSamples[2].TachoArray[TmpPtr]  =  Timer;
-  TachoSamples[2].ArrayPtr            =  TmpPtr;
-
-  if ((35 < Motor[2].Speed) || (-35 > Motor[2].Speed))
-  {
-    if (FORWARD == Motor[2].Direction)
+  Encoder[1]=(((READDirB)?1<<4:0)|(Encoder[1]&0b11101111));
+  
+  if(Encoder[1]&0b00100000)
+  { 
+   if(Encoder[1]&0b00010000)
+   {
+     if(Encoder_prev[1]&0b00100000)
+     {
+       Motor[1].Direction = BACKWARD;
+       (Motor[1].IrqTacho)--;
+     }
+     else
+     {
+       Motor[1].Direction = FORWARD;
+       (Motor[1].IrqTacho)++;
+     }     
+   }
+   else
+   {    
+    if(Encoder_prev[1]&0b00110000)
     {
+      Motor[1].Direction = FORWARD;
+      (Motor[1].IrqTacho)++;
+    }
+    else
+    {
+      Motor[1].Direction = BACKWARD;
+      (Motor[1].IrqTacho)--;
+    }
+   }
+  }
+  else
+  {
+    if(Encoder[1]&0b00010000)
+    {
+     	if(Encoder_prev[1]&0b00110000)
+	{
+	  Motor[1].Direction = BACKWARD;
+	  (Motor[1].IrqTacho)--;
+	}
+	else
+	{
+	  Motor[1].Direction = FORWARD;
+	  (Motor[1].IrqTacho)++;
+	}
+    }
+    else
+    {
+      if(Encoder_prev[1]&0b00100000)
+      {
+	Motor[1].Direction = FORWARD;
+	(Motor[1].IrqTacho)++;
+      }
+      else
+      {
+	Motor[1].Direction = BACKWARD;
+	(Motor[1].IrqTacho)--;
+      }
+    }    
+  }
+  
+  Encoder_prev[1]=Encoder[1]&0b00110000;
+  
+  return IRQ_HANDLED;
+}
+static irqreturn_t IntC (int irq, void * dev)//channel A
+{
+  Encoder[2]=(((READIntC)?1<<3:0)|(Encoder[2]&0b11110111));
+  
+  if(Encoder[2]&0b00001000)
+  { 
+   if(Encoder[2]&0b00000100)
+   {
+     if(Encoder_prev[2]&0b00001000)
+     {
+       Motor[2].Direction = BACKWARD;
+       (Motor[2].IrqTacho)--;
+     }
+     else
+     {
+       Motor[2].Direction = FORWARD;
+       (Motor[2].IrqTacho)++;
+     }     
+   }
+   else
+   {    
+    if(Encoder_prev[2]&0b00001100)
+    {
+      Motor[2].Direction = FORWARD;
       (Motor[2].IrqTacho)++;
     }
     else
     {
+      Motor[2].Direction = BACKWARD;
       (Motor[2].IrqTacho)--;
     }
-    if (Motor[2].DirChgPtr < SamplesPerSpeed[2][SAMPLES_ABOVE_SPEED_75])
-    {
-      Motor[2].DirChgPtr++;
-    }
+   }
   }
   else
   {
-    if (IntCState)
+    if(Encoder[2]&0b00000100)
     {
-      if(DirCState)
-      {
-        if (FORWARD == Motor[2].Direction)
-        {
-          if (Motor[2].DirChgPtr < SamplesPerSpeed[2][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[2].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[2].DirChgPtr = 0;
-        }
-        (Motor[2].IrqTacho)++;
-        Motor[2].Direction = FORWARD;
-      }
-      else
-      {
-        if (BACKWARD == Motor[2].Direction)
-        {
-          if (Motor[2].DirChgPtr < SamplesPerSpeed[2][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[2].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[2].DirChgPtr = 0;
-        }
-        (Motor[2].IrqTacho)--;
-        Motor[2].Direction = BACKWARD;
-      }
+     	if(Encoder_prev[2]&0b00001100)
+	{
+	  Motor[2].Direction = BACKWARD;
+	  (Motor[2].IrqTacho)--;
+	}
+	else
+	{
+	  Motor[2].Direction = FORWARD;
+	  (Motor[2].IrqTacho)++;
+	}
     }
     else
     {
-      if(DirCState)
+      if(Encoder_prev[2]&0b00001000)
       {
-        if (BACKWARD == Motor[2].Direction)
-        {
-          if (Motor[2].DirChgPtr < SamplesPerSpeed[2][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[2].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[2].DirChgPtr = 0;
-        }
-        (Motor[2].IrqTacho)--;
-        Motor[2].Direction = BACKWARD;
+	Motor[2].Direction = FORWARD;
+	(Motor[2].IrqTacho)++;
       }
       else
       {
-        if (FORWARD == Motor[2].Direction)
-        {
-          if (Motor[2].DirChgPtr < SamplesPerSpeed[2][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[2].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[2].DirChgPtr = 0;
-        }
-        (Motor[2].IrqTacho)++;
-        Motor[2].Direction = FORWARD;
+	Motor[2].Direction = BACKWARD;
+	(Motor[2].IrqTacho)--;
       }
-    }
+    }    
   }
+  
+  Encoder_prev[2]=Encoder[2]&0b00001100;  
   return IRQ_HANDLED;
 }
 
-
-static    irqreturn_t IntD (int irq, void * dev)
+static irqreturn_t IntC1 (int irq, void * dev) // channel B
 {
-  UBYTE   TmpPtr;
-  ULONG   IntDState;
-  ULONG   DirDState;
-  ULONG   Timer;
-
-  // Sample all necessary items as fast as possible
-  IntDState  =  READIntD;
-  DirDState  =  READDirD;
-  Timer      =  FREERunning24bittimer;
-
-  TmpPtr = (TachoSamples[3].ArrayPtr + 1) & (NO_OF_TACHO_SAMPLES-1);
-  TachoSamples[3].TachoArray[TmpPtr]  =  Timer;
-  TachoSamples[3].ArrayPtr            =  TmpPtr;
-
-  if ((35 < Motor[3].Speed) || (-35 > Motor[3].Speed))
-  {
-    if (FORWARD == Motor[3].Direction)
+  Encoder[2]=(((READDirC)?1<<2:0)|(Encoder[2]&0b11111011));
+  
+  if(Encoder[2]&0b00001000)
+  { 
+   if(Encoder[2]&0b00000100)
+   {
+     if(Encoder_prev[2]&0b00001000)
+     {
+       Motor[2].Direction = BACKWARD;
+       (Motor[2].IrqTacho)--;
+     }
+     else
+     {
+       Motor[2].Direction = FORWARD;
+       (Motor[2].IrqTacho)++;
+     }     
+   }
+   else
+   {    
+    if(Encoder_prev[2]&0b00001100)
     {
+      Motor[2].Direction = FORWARD;
+      (Motor[2].IrqTacho)++;
+    }
+    else
+    {
+      Motor[2].Direction = BACKWARD;
+      (Motor[2].IrqTacho)--;
+    }
+   }
+  }
+  else
+  {
+    if(Encoder[2]&0b00000100)
+    {
+     	if(Encoder_prev[2]&0b00001100)
+	{
+	  Motor[2].Direction = BACKWARD;
+	  (Motor[2].IrqTacho)--;
+	}
+	else
+	{
+	  Motor[2].Direction = FORWARD;
+	  (Motor[2].IrqTacho)++;
+	}
+    }
+    else
+    {
+      if(Encoder_prev[2]&0b00001000)
+      {
+	Motor[2].Direction = FORWARD;
+	(Motor[2].IrqTacho)++;
+      }
+      else
+      {
+	Motor[2].Direction = BACKWARD;
+	(Motor[2].IrqTacho)--;
+      }
+    }    
+  }
+  
+  Encoder_prev[2]=Encoder[2]&0b00001100;  
+  return IRQ_HANDLED;
+}
+
+static irqreturn_t IntD (int irq, void * dev)//channel A
+{
+  Encoder[3]=(((READIntD)?1<<1:0)|(Encoder[3]&0b11111101));
+  
+  if(Encoder[3]&0b00000010)
+  { 
+   if(Encoder[3]&0b00000001)
+   {
+     if(Encoder_prev[3]&0b00000010)
+     {
+       Motor[3].Direction = BACKWARD;
+       (Motor[3].IrqTacho)--;
+     }
+     else
+     {
+       Motor[3].Direction = FORWARD;
+       (Motor[3].IrqTacho)++;
+     }     
+   }
+   else
+   {    
+    if(Encoder_prev[3]&0b00000011)
+    {
+      Motor[3].Direction = FORWARD;
       (Motor[3].IrqTacho)++;
     }
     else
     {
+      Motor[3].Direction = BACKWARD;
       (Motor[3].IrqTacho)--;
     }
-    if (Motor[3].DirChgPtr < SamplesPerSpeed[3][SAMPLES_ABOVE_SPEED_75])
-    {
-      Motor[3].DirChgPtr++;
-    }
+   }
   }
   else
   {
-    if (IntDState)
+    if(Encoder[3]&0b00000001)
     {
-      if(DirDState)
-      {
-        if (FORWARD == Motor[3].Direction)
-        {
-          if (Motor[3].DirChgPtr < SamplesPerSpeed[3][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[3].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[3].DirChgPtr = 0;
-        }
-        (Motor[3].IrqTacho)++;
-        Motor[3].Direction = FORWARD;
-      }
-      else
-      {
-        if (BACKWARD == Motor[3].Direction)
-        {
-          if (Motor[3].DirChgPtr < SamplesPerSpeed[3][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[3].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[3].DirChgPtr = 0;
-        }
-        (Motor[3].IrqTacho)--;
-        Motor[3].Direction = BACKWARD;
-      }
+     	if(Encoder_prev[3]&0b00000011)
+	{
+	  Motor[3].Direction = BACKWARD;
+	  (Motor[3].IrqTacho)--;
+	}
+	else
+	{
+	  Motor[3].Direction = FORWARD;
+	  (Motor[3].IrqTacho)++;
+	}
     }
     else
     {
-      if(DirDState)
+      if(Encoder_prev[3]&0b00000010)
       {
-        if (BACKWARD == Motor[3].Direction)
-        {
-          if (Motor[3].DirChgPtr < SamplesPerSpeed[3][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[3].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[3].DirChgPtr = 0;
-        }
-        (Motor[3].IrqTacho)--;
-        Motor[3].Direction = BACKWARD;
+	Motor[3].Direction = FORWARD;
+	(Motor[3].IrqTacho)++;
       }
       else
       {
-        if (FORWARD == Motor[3].Direction)
-        {
-          if (Motor[3].DirChgPtr < SamplesPerSpeed[3][SAMPLES_ABOVE_SPEED_75])
-          {
-            Motor[3].DirChgPtr++;
-          }
-        }
-        else
-        {
-          Motor[3].DirChgPtr = 0;
-        }
-        (Motor[3].IrqTacho)++;
-        Motor[3].Direction = FORWARD;
+	Motor[3].Direction = BACKWARD;
+	(Motor[3].IrqTacho)--;
       }
-    }
+    }    
   }
+  
+  Encoder_prev[3]=Encoder[3]&0b00000011;
+  
   return IRQ_HANDLED;
 }
 
+static irqreturn_t IntD1 (int irq, void * dev) // channel B
+{
+  Encoder[3]=(((READDirD)?1:0)|(Encoder[3]&0b11111110));
+  
+  if(Encoder[3]&0b00000010)
+  { 
+   if(Encoder[3]&0b00000001)
+   {
+     if(Encoder_prev[3]&0b00000010)
+     {
+       Motor[3].Direction = BACKWARD;
+       (Motor[3].IrqTacho)--;
+     }
+     else
+     {
+       Motor[3].Direction = FORWARD;
+       (Motor[3].IrqTacho)++;
+     }     
+   }
+   else
+   {    
+    if(Encoder_prev[3]&0b00000011)
+    {
+      Motor[3].Direction = FORWARD;
+      (Motor[3].IrqTacho)++;
+    }
+    else
+    {
+      Motor[3].Direction = BACKWARD;
+      (Motor[3].IrqTacho)--;
+    }
+   }
+  }
+  else
+  {
+    if(Encoder[3]&0b00000001)
+    {
+     	if(Encoder_prev[3]&0b00000011)
+	{
+	  Motor[3].Direction = BACKWARD;
+	  (Motor[3].IrqTacho)--;
+	}
+	else
+	{
+	  Motor[3].Direction = FORWARD;
+	  (Motor[3].IrqTacho)++;
+	}
+    }
+    else
+    {
+      if(Encoder_prev[3]&0b00000010)
+      {
+	Motor[3].Direction = FORWARD;
+	(Motor[3].IrqTacho)++;
+      }
+      else
+      {
+	Motor[3].Direction = BACKWARD;
+	(Motor[3].IrqTacho)--;
+      }
+    }    
+  }
+  
+  Encoder_prev[3]=Encoder[3]&0b00000011;
+  
+  return IRQ_HANDLED;
+}
 
 /*! \page PwmModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- */
-/*! \brief    dCalculateSpeed
- *
- *  - Calculates the actual speed for a motor
- *
- *  - Returns TRUE when a new speed has been calculated, FALSE if otherwise
- *
- *  - Time is sampled every edge on the tacho
- *      - Timer used is 64bit timer plus (P3) module (dual 32bit un-chained mode)
- *      - 64bit timer is running 33Mhz (24Mhz (Osc) * 22 (Multiplier) / 2 (Post divider) / 2 (DIV2)) / 4 (T64 prescaler)
- *      - When reading the timer it is divided by 256 => timer is a factor 256 slower
- *
- *
- *  - Tacho counter is updated on every edge of the tacho INTx pin signal
- *  - Time capture is updated on every edge of the tacho INTx pin signal
- *
- *
- *  - Speed is calculated from the following parameters
- *
- *      - Time is measured edge to edge of the tacho interrupt pin. Average of time is always minimum 2 pulses
- *        (1 high + 1 low period or 1 low + 1 high period) because the duty of the high and low period of the
- *        tacho pulses are not always 50%.
- *        - Average of the large motor
- *          - Above speed 80 it is:          64 samples
- *          - Between speed 60 - 80 it is:   32 samples
- *          - Between speed 40 - 60 it is:   16 samples
- *          - below speed 40 it is:           4 samples
- *        - Average of the medium motor
- *          - Above speed 80 it is:          16 samples
- *          - Between speed 60 - 80 it is:    8 samples
- *          - Between speed 40 - 60 it is:    4 samples
- *          - below speed 40 it is:           2 sample
- *
- *      - Number of samples is always determined based on 1 sample meaning 1 low period nor 1 high period,
- *        this is to enable fast adoption to changes in speed. Medium motor has the critical timing because
- *        it can change speed and direction very fast.
- *
- *      - Large Motor
- *        - Maximum speed of the Large motor is approximately 2mS per tacho pulse (low + high period)
- *          resulting in minimum timer value of: 2mS / (1/(33MHz / 256)) = 256 T64 timer ticks.
- *          Because 1 sample is based on only half a period minimum speed is 256/2 = 128.
- *        - Minimum speed of the large motor is a factor of 100 less than max. speed
- *          max. speed timer ticks * 100 => 256 * 100 = 25600 T64 timer ticks
- *          Because 1 sample is based on only half a period minimum speed is 25600/2 = 12800.
- *
- *
- *      - Medium Motor
- *        - Maximum speed of the medium motor is approximately 1,25mS per tacho pulse (low + high period)
- *          resulting in minimum timer value og: 1,25mS / (1/(33MHz / 256)) = 162 (approximately)
- *          Because 1 sample is based on only half a period minimum speed is 162/2 = 81.
- *        - Minimum speed of the medium motor is a factor of 100 less than max. speed
- *          max. speed timer ticks * 100 => 162 * 100 = 16200 T64 timer ticks
- *          Because 1 sample is based on only half a period minimum speed is 16200/2 = 8100.
- *
- *      - Actual speed is then calculated as:
- *        - Medium motor:
- *          8100 * number of samples / actual time elapsed for number of samples
- *        - Large motor:
- *          12800 * number of samples / actual time elapsed for number of samples
- *
- *
- *  - Parameters:
- *    - Input:
- *      - No        : Motor output number
- *      - *pSpeed   : Pointer to the speed value
- *
- *    - Output:
- *      - Status    : Indication of new speed available or not
- *
- *
- *  - Tacho pulse examples:
- *
- *
- *    - Normal
- *
- *      ----       ------       ------       ------
- *          |     |      |     |      |     |      |
- *          |     |      |     |      |     |      |
- *          -------      -------      -------      --- DIRx signal
- *
- *
- *         ----       ------       ------       ------ INTx signal
- *             |     |      |     |      |     |
- *             |     |      |     |      |     |
- *             -------      -------      -------
- *
- *             ^     ^      ^     ^      ^     ^
- *             |     |      |     |      |     |
- *             |   Timer    |   Timer    |   Timer
- *             |     +      |     +      |     +
- *             |  Counter   |  Counter   |  Counter
- *             |            |            |
- *           Timer        Timer        Timer
- *             +            +            +
- *          Counter      Counter      Counter
- *
- *
- *
- *    - Direction change
- *
- *      DirChgPtr variable is used to indicate how many timer samples have been sampled
- *      since direction has been changed. DirChgPtr is set to 0 when tacho interrupt detects
- *      direction change and then it is counted up for every timer sample. So when DirChgPtr
- *      has the value of 2 then there must be 2 timer samples in the the same direction
- *      available.
- *
- *      ----       ------       ------       ------       ---
- *          |     |      |     |      |     |      |     |
- *          |     |      |     |      |     |      |     |
- *          -------      -------      -------      -------   DIRx signal
- *
- *
- *       ------       -------------       ------       ------INTx signal
- *             |     |             |     |      |     |
- *             |     |             |     |      |     |
- *             -------             -------      -------
- *
- *             ^     ^             ^     ^      ^     ^
- *             |     |             |     |      |     |
- *           Timer   |           Timer   |    Timer   |
- *             +     |             +     |      +     |
- *          Counter  |          Counter  |   Counter  |
- *             +     |             +     |      +     |
- *       DirChgPtr++ |       DirChgPtr=0 |DirChgPtr++ |
- *                 Timer               Timer        Timer
- *                   +                   +            +
- *                Counter             Counter      Counter
- *                   +                   +            +
- *               DirChgPtr++         DirChgPtr++  DirChgPtr++
- *
- *
- *
- *
- *      ----       ------             ------        ----
- *          |     |      |           |      |      |
- *          |     |      |           |      |      |
- *          -------      -------------       -------          DIRx signal
- *
- *
- *       ------       ------       ------       ------        INTx signal
- *             |     |      |     |      |     |      |
- *             |     |      |     |      |     |      |
- *             -------      -------      -------       ----
- *
- *             ^     ^      ^     ^      ^     ^      ^
- *             |     |      |     |      |     |      |
- *           Timer   |    Timer   |    Timer   |    Timer
- *             +     |      +     |      +     |      +
- *          Counter  |   Counter  |   Counter  |   Counter
- *             +     |      +     |      +     |      +
- *        DirChgPtr++| DirChgPtr++| DirChgPtr++| DirChgPtr++
- *                 Timer        Timer        Timer
- *                   +            +            +
- *                Counter      Counter      Counter
- *                   +            +            +
- *               DirChgPtr++  DirChgPtr=0  DirChgPtr++
- *
- *
- *
- */
+*
+* <hr size="1"/>
+* <b> write </b>
+*/
+/*! \brief dCalculateSpeed
+*
+* - Calculates the actual speed for a motor
+*
+* - Returns TRUE when a new speed has been calculated, FALSE if otherwise
+*
+* - Time is sampled every edge on the tacho
+* - Timer used is 64bit timer plus (P3) module (dual 32bit un-chained mode)
+* - 64bit timer is running 33Mhz (24Mhz (Osc) * 22 (Multiplier) / 2 (Post divider) / 2 (DIV2)) / 4 (T64 prescaler)
+* - When reading the timer it is divided by 256 => timer is a factor 256 slower
+*
+*
+* - Tacho counter is updated on every edge of the tacho INTx pin signal
+* - Time capture is updated on every edge of the tacho INTx pin signal
+*
+*
+* - Speed is calculated from the following parameters
+*
+* - Time is measured edge to edge of the tacho interrupt pin. Average of time is always minimum 2 pulses
+* (1 high + 1 low period or 1 low + 1 high period) because the duty of the high and low period of the
+* tacho pulses are not always 50%.
+* - Average of the large motor
+* - Above speed 80 it is: 64 samples
+* - Between speed 60 - 80 it is: 32 samples
+* - Between speed 40 - 60 it is: 16 samples
+* - below speed 40 it is: 4 samples
+* - Average of the medium motor
+* - Above speed 80 it is: 16 samples
+* - Between speed 60 - 80 it is: 8 samples
+* - Between speed 40 - 60 it is: 4 samples
+* - below speed 40 it is: 2 sample
+*
+* - Number of samples is always determined based on 1 sample meaning 1 low period nor 1 high period,
+* this is to enable fast adoption to changes in speed. Medium motor has the critical timing because
+* it can change speed and direction very fast.
+*
+* - Large Motor
+* - Maximum speed of the Large motor is approximately 2mS per tacho pulse (low + high period)
+* resulting in minimum timer value of: 2mS / (1/(33MHz / 256)) = 256 T64 timer ticks.
+* Because 1 sample is based on only half a period minimum speed is 256/2 = 128.
+* - Minimum speed of the large motor is a factor of 100 less than max. speed
+* max. speed timer ticks * 100 => 256 * 100 = 25600 T64 timer ticks
+* Because 1 sample is based on only half a period minimum speed is 25600/2 = 12800.
+*
+*
+* - Medium Motor
+* - Maximum speed of the medium motor is approximately 1,25mS per tacho pulse (low + high period)
+* resulting in minimum timer value og: 1,25mS / (1/(33MHz / 256)) = 162 (approximately)
+* Because 1 sample is based on only half a period minimum speed is 162/2 = 81.
+* - Minimum speed of the medium motor is a factor of 100 less than max. speed
+* max. speed timer ticks * 100 => 162 * 100 = 16200 T64 timer ticks
+* Because 1 sample is based on only half a period minimum speed is 16200/2 = 8100.
+*
+* - Actual speed is then calculated as:
+* - Medium motor:
+* 8100 * number of samples / actual time elapsed for number of samples
+* - Large motor:
+* 12800 * number of samples / actual time elapsed for number of samples
+*
+*
+* - Parameters:
+* - Input:
+* - No : Motor output number
+* - *pSpeed : Pointer to the speed value
+*
+* - Output:
+* - Status : Indication of new speed available or not
+*
+*
+* - Tacho pulse examples:
+*
+*
+* - Normal
+*
+* ---- ------ ------ ------
+* | | | | | | |
+* | | | | | | |
+* ------- ------- ------- --- DIRx signal
+*
+*
+* ---- ------ ------ ------ INTx signal
+* | | | | | |
+* | | | | | |
+* ------- ------- -------
+*
+* ^ ^ ^ ^ ^ ^
+* | | | | | |
+* | Timer | Timer | Timer
+* | + | + | +
+* | Counter | Counter | Counter
+* | | |
+* Timer Timer Timer
+* + + +
+* Counter Counter Counter
+*
+*
+*
+* - Direction change
+*
+* DirChgPtr variable is used to indicate how many timer samples have been sampled
+* since direction has been changed. DirChgPtr is set to 0 when tacho interrupt detects
+* direction change and then it is counted up for every timer sample. So when DirChgPtr
+* has the value of 2 then there must be 2 timer samples in the the same direction
+* available.
+*
+* ---- ------ ------ ------ ---
+* | | | | | | | |
+* | | | | | | | |
+* ------- ------- ------- ------- DIRx signal
+*
+*
+* ------ ------------- ------ ------INTx signal
+* | | | | | |
+* | | | | | |
+* ------- ------- -------
+*
+* ^ ^ ^ ^ ^ ^
+* | | | | | |
+* Timer | Timer | Timer |
+* + | + | + |
+* Counter | Counter | Counter |
+* + | + | + |
+* DirChgPtr++ | DirChgPtr=0 |DirChgPtr++ |
+* Timer Timer Timer
+* + + +
+* Counter Counter Counter
+* + + +
+* DirChgPtr++ DirChgPtr++ DirChgPtr++
+*
+*
+*
+*
+* ---- ------ ------ ----
+* | | | | | |
+* | | | | | |
+* ------- ------------- ------- DIRx signal
+*
+*
+* ------ ------ ------ ------ INTx signal
+* | | | | | | |
+* | | | | | | |
+* ------- ------- ------- ----
+*
+* ^ ^ ^ ^ ^ ^ ^
+* | | | | | | |
+* Timer | Timer | Timer | Timer
+* + | + | + | +
+* Counter | Counter | Counter | Counter
+* + | + | + | +
+* DirChgPtr++| DirChgPtr++| DirChgPtr++| DirChgPtr++
+* Timer Timer Timer
+* + + +
+* Counter Counter Counter
+* + + +
+* DirChgPtr++ DirChgPtr=0 DirChgPtr++
+*
+*
+*
+*/
 
-UBYTE     dCalculateSpeed(UBYTE No, SBYTE *pSpeed)
+UBYTE dCalculateSpeed(UBYTE No, SBYTE *pSpeed)
 {
 
   ULONG Tmp1, Tmp2;
@@ -3983,9 +4136,9 @@ UBYTE     dCalculateSpeed(UBYTE No, SBYTE *pSpeed)
   UBYTE Ptr, Status;
   SWORD Speed;
 
-  Status  = FALSE;
+  Status = FALSE;
 
-  Ptr     = TachoSamples[No].ArrayPtr;
+  Ptr = TachoSamples[No].ArrayPtr;
 
   if (Motor[No].DirChgPtr >= 1)
   {
@@ -4000,16 +4153,16 @@ UBYTE     dCalculateSpeed(UBYTE No, SBYTE *pSpeed)
     }
   }
 
-  Speed   = *pSpeed;    // Maintain old speed if not changed
-  Tmp1    = TachoSamples[No].TachoArray[Ptr];
-  Tmp2    = TachoSamples[No].TachoArray[((Ptr - AVG_TACHO_COUNTS[No]) & (NO_OF_TACHO_SAMPLES - 1))];
+  Speed = *pSpeed; // Maintain old speed if not changed
+  Tmp1 = TachoSamples[No].TachoArray[Ptr];
+  Tmp2 = TachoSamples[No].TachoArray[((Ptr - AVG_TACHO_COUNTS[No]) & (NO_OF_TACHO_SAMPLES - 1))];
 
   if ((Ptr != TachoSamples[No].ArrayPtrOld) && (Motor[No].DirChgPtr >= AVG_TACHO_COUNTS[No]))
   {
 
-    Status                        = TRUE;
-    TimeOutSpeed0[No]             = Tmp1;
-    TachoSamples[No].ArrayPtrOld  = Ptr;
+    Status = TRUE;
+    TimeOutSpeed0[No] = Tmp1;
+    TachoSamples[No].ArrayPtrOld = Ptr;
 
     Diff = ((Tmp1-Tmp2) & 0x00FFFFFF);
     if (Diff)
@@ -4037,10 +4190,10 @@ UBYTE     dCalculateSpeed(UBYTE No, SBYTE *pSpeed)
     // No new Values check for speed 0
     if ((CountsPerPulse[No]) < ((FREERunning24bittimer - TimeOutSpeed0[No]) & 0x00FFFFFF))
     {
-      TimeOutSpeed0[No]   = FREERunning24bittimer;
-      Speed               = 0;
+      TimeOutSpeed0[No] = FREERunning24bittimer;
+      Speed = 0;
       Motor[No].DirChgPtr = 0;
-      Status              = TRUE;
+      Status = TRUE;
     }
   }
 
@@ -4051,48 +4204,48 @@ UBYTE     dCalculateSpeed(UBYTE No, SBYTE *pSpeed)
 
 
 /*! \page PWMModule
- *
- *  <hr size="1"/>
- *  <b>     write </b>
- */
- /*! \brief    Device2Write
- *
- *  Only used for daisy chaining to ensure Busy flags being set from when message has been
- *  received until being executed by the VM
- *
- */
+*
+* <hr size="1"/>
+* <b> write </b>
+*/
+ /*! \brief Device2Write
+*
+* Only used for daisy chaining to ensure Busy flags being set from when message has been
+* received until being executed by the VM
+*
+*/
 static ssize_t Device2Write(struct file *File,const char *Buffer,size_t Count,loff_t *Data)
 {
-  int     Lng     = 0;
-  SBYTE   Buf[20];
+  int Lng = 0;
+  SBYTE Buf[20];
 
   copy_from_user(Buf, Buffer, Count);
 
-  ReadyStatus |= Buf[0];   // Set Ready flag
-  TestStatus  |= Buf[0];   // Set Test flag
+  ReadyStatus |= Buf[0]; // Set Ready flag
+  TestStatus |= Buf[0]; // Set Test flag
 
   return (Lng);
 }
 
 
 /*! \page PWMModule
- *
- *  <hr size="1"/>
- *  <b>     read </b>
- *
- *
- */
-/*! \brief    Device2Read
- *
- */
+*
+* <hr size="1"/>
+* <b> read </b>
+*
+*
+*/
+/*! \brief Device2Read
+*
+*/
 static ssize_t Device2Read(struct file *File,char *Buffer,size_t Count,loff_t *Offset)
 {
-  int     Lng     = 0;
+  int Lng = 0;
   return (Lng);
 }
 
-#define     SHM_LENGTH    (sizeof(MotorData))
-#define     NPAGES        ((SHM_LENGTH + PAGE_SIZE - 1) / PAGE_SIZE)
+#define SHM_LENGTH (sizeof(MotorData))
+#define NPAGES ((SHM_LENGTH + PAGE_SIZE - 1) / PAGE_SIZE)
 static void *kmalloc_ptr;
 
 
@@ -4104,23 +4257,23 @@ static int Device2Mmap(struct file *filp, struct vm_area_struct *vma)
 
    if (ret != 0)
    {
-     ret  =  -EAGAIN;
+     ret = -EAGAIN;
    }
 
    return (ret);
 }
 
 
-static    const struct file_operations Device2Entries =
+static const struct file_operations Device2Entries =
 {
-  .owner        = THIS_MODULE,
-  .read         = Device2Read,
-  .write        = Device2Write,
-  .mmap         = Device2Mmap,
+  .owner = THIS_MODULE,
+  .read = Device2Read,
+  .write = Device2Write,
+  .mmap = Device2Mmap,
 };
 
 
-static    struct miscdevice Device2 =
+static struct miscdevice Device2 =
 {
   MISC_DYNAMIC_MINOR,
   DEVICE2_NAME,
@@ -4130,14 +4283,14 @@ static    struct miscdevice Device2 =
 
 static int Device2Init(void)
 {
-  int       Result = -1;
-  int       i;
+  int Result = -1;
+  int i;
   MOTORDATA *pTmp;
 
-  Result  =  misc_register(&Device2);
+  Result = misc_register(&Device2);
   if (Result)
   {
-    printk("  %s device register failed\n",DEVICE2_NAME);
+    printk(" %s device register failed\n",DEVICE2_NAME);
   }
   else
   { // allocate kernel shared memory for tacho counts and speed
@@ -4149,16 +4302,16 @@ static int Device2Init(void)
       {
         SetPageReserved(virt_to_page(((unsigned long)pTmp) + i));
       }
-      pMotor =  pTmp;
+      pMotor = pTmp;
       memset(pMotor,0,sizeof(MotorData));
 
 #ifdef DEBUG
-      printk("  %s device register succes\n",DEVICE2_NAME);
+      printk(" %s device register succes\n",DEVICE2_NAME);
 #endif
     }
     else
     {
-      printk("  %s kmalloc failed !!\n",DEVICE2_NAME);
+      printk(" %s kmalloc failed !!\n",DEVICE2_NAME);
     }
   }
   return (Result);
@@ -4167,24 +4320,24 @@ static int Device2Init(void)
 
 static void Device2Exit(void)
 {
-  MOTORDATA   *pTmp;
-  int         i;
+  MOTORDATA *pTmp;
+  int i;
 
-  pTmp    =  pMotor;
-  pMotor  =  MotorData;
+  pTmp = pMotor;
+  pMotor = MotorData;
   // free shared memory
   for (i = 0; i < NPAGES * PAGE_SIZE; i+= PAGE_SIZE)
   {
     ClearPageReserved(virt_to_page(((unsigned long)pTmp) + i));
 #ifdef DEBUG
-    printk("  %s memory page %d unmapped\n",DEVICE1_NAME,i);
+    printk(" %s memory page %d unmapped\n",DEVICE1_NAME,i);
 #endif
   }
   kfree(kmalloc_ptr);
 
   misc_deregister(&Device2);
 #ifdef DEBUG
-  printk("  %s device unregistered\n",DEVICE2_NAME);
+  printk(" %s device unregistered\n",DEVICE2_NAME);
 #endif
 }
 
@@ -4195,15 +4348,15 @@ module_param (HwId, charp, 0);
 
 static int ModuleInit(void)
 {
-  Hw  =  HWID;
+  Hw = HWID;
 
   if (Hw < PLATFORM_START)
   {
-    Hw  =  PLATFORM_START;
+    Hw = PLATFORM_START;
   }
   if (Hw > PLATFORM_END)
   {
-    Hw  =  PLATFORM_END;
+    Hw = PLATFORM_END;
   }
 
 #ifdef DEBUG
@@ -4212,7 +4365,7 @@ static int ModuleInit(void)
 
   if (request_mem_region(DA8XX_GPIO_BASE,0xD8,MODULE_NAME) >= 0)
   {
-    GpioBase  =  (void*)ioremap(DA8XX_GPIO_BASE,0xD8);
+    GpioBase = (void*)ioremap(DA8XX_GPIO_BASE,0xD8);
     if (GpioBase != NULL)
     {
 #ifdef DEBUG
@@ -4224,40 +4377,40 @@ static int ModuleInit(void)
         case EP2:
         {
           /* This is to comply with changing of inverters on the tacho direction pins */
-          /* only Final hardware does not need to be inverted                         */
+          /* only Final hardware does not need to be inverted */
           HwInvBits = 0xFFFFFFFF;
 
           /* Motor PWM outputs has been switched in EP2 MA<->MB and MC<->MD */
-          SetDuty[0]  = SetDutyMB;
-          SetDuty[1]  = SetDutyMA;
-          SetDuty[2]  = SetDutyMD;
-          SetDuty[3]  = SetDutyMC;
+          SetDuty[0] = SetDutyMB;
+          SetDuty[1] = SetDutyMA;
+          SetDuty[2] = SetDutyMD;
+          SetDuty[3] = SetDutyMC;
         }
         break;
         case FINALB:
         {
           /* This is to comply with changing of inverters on the tacho direction pins */
-          /* only Final hardware does not need to be inverted                         */
+          /* only Final hardware does not need to be inverted */
           HwInvBits = 0xFFFFFFFF;
 
           /* Motor PWM outputs has been switched in EP2 MA<->MB and MC<->MD */
-          SetDuty[0]  = SetDutyMA;
-          SetDuty[1]  = SetDutyMB;
-          SetDuty[2]  = SetDutyMC;
-          SetDuty[3]  = SetDutyMD;
+          SetDuty[0] = SetDutyMA;
+          SetDuty[1] = SetDutyMB;
+          SetDuty[2] = SetDutyMC;
+          SetDuty[3] = SetDutyMD;
         }
         break;
         case FINAL:
         {
           /* This is to comply with changing of inverters on the tacho direction pins */
-          /* only Final hardware does not need to be inverted                         */
+          /* only Final hardware does not need to be inverted */
           HwInvBits = 0;
 
           /* Motor PWM outputs has been switched in EP2 MA<->MB and MC<->MD */
-          SetDuty[0]  = SetDutyMA;
-          SetDuty[1]  = SetDutyMB;
-          SetDuty[2]  = SetDutyMC;
-          SetDuty[3]  = SetDutyMD;
+          SetDuty[0] = SetDutyMA;
+          SetDuty[1] = SetDutyMB;
+          SetDuty[2] = SetDutyMC;
+          SetDuty[3] = SetDutyMD;
         }
         break;
       }
@@ -4268,9 +4421,9 @@ static int ModuleInit(void)
       Device2Init();
 
       /* Setup timer irq*/
-      Device1Time  =  ktime_set(0,SOFT_TIMER_SETUP);
+      Device1Time = ktime_set(0,SOFT_TIMER_SETUP);
       hrtimer_init(&Device1Timer,CLOCK_MONOTONIC,HRTIMER_MODE_REL);
-      Device1Timer.function  =  Device1TimerInterrupt1;
+      Device1Timer.function = Device1TimerInterrupt1;
       hrtimer_start(&Device1Timer,Device1Time,HRTIMER_MODE_REL);
     }
   }
@@ -4288,6 +4441,11 @@ static void ModuleExit(void)
   free_irq(gpio_to_irq(IRQB_PINNO), NULL);
   free_irq(gpio_to_irq(IRQC_PINNO), NULL);
   free_irq(gpio_to_irq(IRQD_PINNO), NULL);
+  
+  free_irq(gpio_to_irq(IRQA_PINN1), NULL);
+  free_irq(gpio_to_irq(IRQB_PINN1), NULL);
+  free_irq(gpio_to_irq(IRQC_PINN1), NULL);
+  free_irq(gpio_to_irq(IRQD_PINN1), NULL);
 
   Device1Exit();
   Device2Exit();
@@ -4295,7 +4453,3 @@ static void ModuleExit(void)
   iounmap(GpioBase);
 
 }
-
-
-
-
