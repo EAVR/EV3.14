@@ -1,4 +1,0 @@
-# DROPBEAR_BANNER=""
-# DROPBEAR_RSAKEY="/etc/dropbear/dropbear_rsa_host_key"
-# DROPBEAR_DSSKEY="/etc/dropbear/dropbear_dss_host_key"
-# DROPBEAR_KEYTYPES="rsa"
