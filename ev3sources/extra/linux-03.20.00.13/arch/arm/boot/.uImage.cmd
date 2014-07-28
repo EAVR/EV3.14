@@ -1,0 +1,1 @@
+cmd_arch/arm/boot/uImage := /bin/sh /home/maximilian/projects/git-clean/ev3sources/extra/linux-03.20.00.13/scripts/mkuboot.sh -A arm -O linux -T kernel -C none -a 0xc0008000 -e 0xc0008000 -n 'Linux-2.6.33-rc4' -d arch/arm/boot/zImage arch/arm/boot/uImage

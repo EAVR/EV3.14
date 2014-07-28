@@ -1,0 +1,2 @@
+/home/maximilian/projects/git-clean/ev3sources/lms2012/d_power/Linuxmod_AM1808/d_power.ko
+/home/maximilian/projects/git-clean/ev3sources/lms2012/d_power/Linuxmod_AM1808/d_power.o
