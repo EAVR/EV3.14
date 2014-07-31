@@ -11,13 +11,13 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <string.h>
-#include </usr/include/linux/ioctl.h>
-#include </usr/include/linux/fb.h>
+#include <ioctl.h>
+#include <fb.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
 #include <sys/file.h>
 
-#include "/home/maximilian/projects/lms2012/lms2012/source/lms2012.h"
+#include "../lms2012/source/lms2012.h"
 
 #include "charset.h"
 #include "com.h"
@@ -27,7 +27,7 @@
 
 #define SCREEN_SIZE (8*16*12*5)
 
-#define EV3_BATTLEVEL_1 70	//value in V
+#define EV3_BATTLEVEL_1 70	//value in cV (centiVolt, accuracy is not critical for this measure, and so it fits on 8 bits)
 #define EV3_BATTLEVEL_2 65
 #define EV3_BATTLEVEL_3 60
 #define EV3_BATTLEVEL_4 55
@@ -74,7 +74,7 @@ const char MOTOR_PORT_B = 0x02;
 const char MOTOR_PORT_C = 0x04;
 const char MOTOR_PORT_D = 0x08;
 
-//Shared memory between the 3 processes of the main code
+//Shared memory between the 3 processes
 char* ptr;
 #define WD 							ptr[0]
 #define conn_state 			ptr[1]
@@ -86,7 +86,7 @@ char* ptr;
 #define halt						ptr[7]
 
 
-//timer for the watchdog and the LCD
+//timer used by the watchdog and the LCD
 struct ev3_periodic_info
 {
 	int timer_fd;
@@ -148,7 +148,7 @@ static int ev3_wait_period( struct ev3_periodic_info *info )
 } 
 
 /* The only function that accesses motor device, to avoid using mutexes. 2 of the processes use it,
- * it uses some flags for additional motor communication.
+ * it uses some flags for additional communication with the motor device (reset encoders, stop mode ...).
  * All motor operations use the first command byte to indicate the type of operation
  * and the second one to indicate the motor(s) port(s)
  */
@@ -216,7 +216,7 @@ int setPower(int chan, int val)
 //puts a string into USB buffer
 int USBPutString(char* s, int l)
 {
-write(usb_fd,s,l);
+return write(usb_fd,s,l);
 return write(usb_fd,s,l);
 }
 
@@ -299,6 +299,7 @@ unsigned crc8(unsigned crc, unsigned char *data, size_t len)
  * The LEDs are used in a complement to the screen to inform the user :
  * 	- in mode 1 (green static light) everything is OK, program works fine
  * 	- in mode 2 (red static), the connection is down
+ * 	- in mode 3 (orange static), the EV3 is shutting down
  * 	- in mode 5 (regularly blinking red), the watchdog is awaken
  * 	- in mode 9 (frenetically blinking orange light), the battery is empty
  */
@@ -471,9 +472,9 @@ TRANS: [ ]\r\n\
 	//Handle the control panel device
 	if(led!=9)
 	{
-	if(!conn_state) led=2;
-	else if(WDflag) led=5;
-	else led=1;
+	 if(!conn_state) led=2;
+	 else if(WDflag) led=5;
+	 else led=1;
 	}
 	
 		
@@ -502,9 +503,9 @@ TRANS: [ ]\r\n\
 }
 
 /* The aim of this task is to ensure that the USB communication is always active. After the WATCHDOG_PERIOD,
- * if nothing has been received, the Watchdog flag WD still has the same value and watchdog awakens. It stops 
- * the motors and waits until communication starts again. 
- * The Wtachdog of course has a higher priority as the threads it watches. 
+ * if nothing has been received, the Watchdog flag WD still is down  and watchdog awakens. It stops 
+ * the motors and waits until the communication starts again. 
+ * The Wtachdog of course has a higher priority than the threads it watches. 
  */
 void* Watchdog()
 {

@@ -21,7 +21,7 @@
 #include <errno.h>
 #include "/home/maximilian/lms/libusb/libusb-1.0.18/libusb/libusb.h"
 
-#include "../../com.h"
+#include "ev3sources/lms2012/main/com.h"
 
 #define NB_OF_EV3										2	//nb of EV3s connected
 
