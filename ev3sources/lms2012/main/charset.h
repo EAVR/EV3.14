@@ -1,10 +1,15 @@
 /*
  * This is the character set used to print messages and battery states. It is handmade using the charset.ods
  * file. 
+ * 
+ * The screen resolution is 480x128, for more information on the screen controller (Sitronix ST7586) see datasheet:
+ * http://www.ic-on-line.cn/view_download.php?id=1427530&file=0208\st7586s_4637115.pdf
+ *
  * We chose to split the screen in 12 columns and 8 lines, the size of each character is 5x8 bytes. Also, there
  * are 2 "styles" : black on white and white on black. Only the following characters are supported :
  * {[0-9][A-Z]," ",",",".","?","|","[","]","-","\","/",":",".",">","<","!","@","^","'","=","_"} plus some for 
  * the battery gauge.
+ *
  */
 
 #define LINE_LENGTH 60
